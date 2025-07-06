@@ -34,7 +34,6 @@ import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
-import java.lang.ref.WeakReference
 
 /** ULocationDriverPlugin */
 class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
@@ -55,7 +54,13 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   private var activityMessenger: Messenger? = null
 
   companion object {
-    lateinit var toChannel: MethodChannel
+    var toChannelForeground: MethodChannel? = null
+    var toChannelBackground: MethodChannel? = null
+    val toChannelName = "com.jimdo.uchida001tmhr.u_location_driver/toDart"
+    val messageInformToDart = 1
+    val messageChangeToForeground = 2
+    val messageChangeToBackground = 3
+
   }
 
   private fun getLocationPermissionForegroundLocation() {
@@ -121,7 +126,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     print("onAttachedToEngine()")
     fromChannel =
       MethodChannel(flutterPluginBinding.binaryMessenger, "com.jimdo.uchida001tmhr.u_location_driver/fromDart")
-    toChannel = MethodChannel(flutterPluginBinding.binaryMessenger, "com.jimdo.uchida001tmhr.u_location_driver/toDart")
+    toChannelForeground = MethodChannel(flutterPluginBinding.binaryMessenger, toChannelName)
     fromChannel.setMethodCallHandler(this)
     thisContext = flutterPluginBinding.applicationContext
   }
@@ -138,122 +143,142 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
   }
 
-    override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-      print("onMethodCall()")
-      val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
-      when (call.method) {
-        "activateForeground" -> {
-          isScreenActive = true
-          thisContext.startForegroundService(intentLocation)
-          thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
-          getLocationPermissionForegroundLocation()
-          result.success("success")
+  override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+    print("onMethodCall()")
+    val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
+    when (call.method) {
+      "activateForeground" -> {
+        isScreenActive = true
+        thisContext.startForegroundService(intentLocation)
+        thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
+        serviceChangeToForeground()
+        getLocationPermissionForegroundLocation()
+        result.success("success")
+      }
+
+      "activateBackground" -> {
+        isScreenActive = false
+        thisContext.startForegroundService(intentLocation)
+        thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
+        serviceChangeToBackground()
+        getLocationPermissionForegroundLocation()
+        result.success("success")
+      }
+
+      "inactivate" -> {
+        isScreenActive = false
+        thisContext.stopService(intentLocation)
+        stopLocationUpdates()
+        result.success("success")
+      }
+
+      else ->
+        result.notImplemented()
+    }
+  }
+
+  override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+    fromChannel.setMethodCallHandler(null)
+  }
+
+  internal class ActivityHandler(activity: Activity) : Handler(Looper.getMainLooper()) {
+
+    val messageServiceToPlugin = 2
+
+    override fun handleMessage(msg: Message) {
+      when (msg.what) {
+        messageServiceToPlugin -> {
+          //something
         }
 
-        "activateBackground" -> {
-          isScreenActive = false
-          thisContext.startForegroundService(intentLocation)
-          thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
-          getLocationPermissionForegroundLocation()
-          result.success("success")
-        }
-
-        "inactivate" -> {
-          isScreenActive = false
-          thisContext.stopService(intentLocation)
-          stopLocationUpdates()
-          result.success("success")
-        }
-
-        else ->
-          result.notImplemented()
+        else -> super.handleMessage(msg)
       }
     }
+  }
 
-    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-      fromChannel.setMethodCallHandler(null)
+  fun sendMessageToService(location: Location?) {
+    try {
+      val msg = Message.obtain(null, messageInformToDart, 0, 0)
+      msg.replyTo = activityMessenger
+      msg.obj = location
+      serviceMessenger?.send(msg)
+    } catch (e: RemoteException) {
+      e.printStackTrace()
     }
+  }
 
-    internal class ActivityHandler(activity: Activity) : Handler(Looper.getMainLooper()) {
-
-      val messageServiceToPlugin = 2
-
-      override fun handleMessage(msg: Message) {
-        when (msg.what) {
-          messageServiceToPlugin -> {
-            //something
-          }
-
-          else -> super.handleMessage(msg)
-        }
-      }
+  fun serviceChangeToForeground() {
+    try {
+      val msg = Message.obtain(null, messageChangeToForeground, 0, 0)
+      msg.replyTo = activityMessenger
+      serviceMessenger?.send(msg)
+    } catch (e: RemoteException) {
+      e.printStackTrace()
     }
+  }
 
-    private val messageActivityToService = 1
+  fun serviceChangeToBackground() {
+    try {
+      val msg = Message.obtain(null, messageChangeToBackground, 0, 0)
+      msg.replyTo = activityMessenger
+      serviceMessenger?.send(msg)
+    } catch (e: RemoteException) {
+      e.printStackTrace()
+    }
+  }
 
-    fun sendMessageToService(location: Location?) {
+  private fun requestDeviceLocation() {
+    val permissionFineLocation = ContextCompat.checkSelfPermission(
+      thisContext.applicationContext,
+      Manifest.permission.ACCESS_FINE_LOCATION
+    )
+    print("permissionFineLocation=$permissionFineLocation")
+    val permissionBackgroundLocation = ContextCompat.checkSelfPermission(
+      thisContext.applicationContext,
+      Manifest.permission.ACCESS_BACKGROUND_LOCATION
+    )
+    print("permissionBackgroundLocation=$permissionBackgroundLocation")
+    if (permissionFineLocation == PackageManager.PERMISSION_GRANTED &&
+      permissionBackgroundLocation == PackageManager.PERMISSION_GRANTED
+    ) {
+      fusedLocationClient = LocationServices.getFusedLocationProviderClient(thisActivity)
+      /*
       try {
-        val msg = Message.obtain(null, messageActivityToService, 0, 0)
-        msg.replyTo = activityMessenger
-        msg.obj = location
-        serviceMessenger!!.send(msg)
-      } catch (e: RemoteException) {
-        e.printStackTrace()
-      }
-    }
-
-    private fun requestDeviceLocation() {
-      val permissionFineLocation = ContextCompat.checkSelfPermission(
-        thisContext.applicationContext,
-        Manifest.permission.ACCESS_FINE_LOCATION
-      )
-      print("permissionFineLocation=$permissionFineLocation")
-      val permissionBackgroundLocation = ContextCompat.checkSelfPermission(
-        thisContext.applicationContext,
-        Manifest.permission.ACCESS_BACKGROUND_LOCATION
-      )
-      print("permissionBackgroundLocation=$permissionBackgroundLocation")
-      if (permissionFineLocation == PackageManager.PERMISSION_GRANTED &&
-        permissionBackgroundLocation == PackageManager.PERMISSION_GRANTED
-      ) {
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(thisActivity)
-        /*
-        try {
-          val locationResult = fusedLocationClient.lastLocation
-          locationResult.addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-              val lastKnownLocation = task.result
-              if (lastKnownLocation != null) {
-                sendMessageToService(lastKnownLocation)
-              }
+        val locationResult = fusedLocationClient.lastLocation
+        locationResult.addOnCompleteListener { task ->
+          if (task.isSuccessful) {
+            val lastKnownLocation = task.result
+            if (lastKnownLocation != null) {
+              sendMessageToService(lastKnownLocation)
             }
           }
-        } catch (e: SecurityException) {
-          print(e)
         }
-         */
-        startLocationUpdates()
+      } catch (e: SecurityException) {
+        print(e)
       }
+       */
+      startLocationUpdates()
     }
-
-    private fun startLocationUpdates() {
-      if (isScreenActive) {
-        fusedLocationClient.requestLocationUpdates(
-          LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 10 * 1000 /*10秒*/)
-            .setMinUpdateIntervalMillis(5 * 1000 /*5秒*/)
-            .build(), locationCallback, Looper.getMainLooper()
-        )
-      } else {
-        fusedLocationClient.requestLocationUpdates(
-          LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 30 * 1000 /*30秒*/)
-            .setMinUpdateIntervalMillis(10 * 1000 /*10秒*/)
-            .build(), locationCallback, Looper.getMainLooper()
-        )
-      }
-    }
-
-    private fun stopLocationUpdates() {
-      fusedLocationClient.removeLocationUpdates(locationCallback)
-    }
-
   }
+
+  private fun startLocationUpdates() {
+    if (isScreenActive) {
+      fusedLocationClient.requestLocationUpdates(
+        LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 10 * 1000 /*10秒*/)
+          .setMinUpdateIntervalMillis(5 * 1000 /*5秒*/)
+          .build(), locationCallback, Looper.getMainLooper()
+      )
+    } else {
+      fusedLocationClient.requestLocationUpdates(
+        LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 30 * 1000 /*30秒*/)
+          .setMinUpdateIntervalMillis(10 * 1000 /*10秒*/)
+          .build(), locationCallback, Looper.getMainLooper()
+      )
+    }
+  }
+
+  private fun stopLocationUpdates() {
+    fusedLocationClient.removeLocationUpdates(locationCallback)
+  }
+
+}
