@@ -95,8 +95,6 @@ class _MyAppState extends State<MyApp> {
         setState(() {
           _messageFromIOS = 'Message from Native:\n${call.arguments}';
         });
-
-
         String? username = prefs.getString("fromAddress");
         String? password = prefs.getString("password");
         String? toAddress = prefs.getString("toAddress");

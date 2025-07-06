@@ -6,18 +6,56 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.location.Location
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.os.Message
+import android.os.Messenger
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat.startForeground
-import io.flutter.embedding.engine.FlutterJNI;
+// import io.flutter.embedding.engine.FlutterJNI;
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 
 class BackgroundLocationService : Service() {
+  private var serviceMessenger:  Messenger? = null
 
   // private val flutterJNI = FlutterJNI()
 
   override fun onBind(intent: Intent): IBinder {
-    TODO("Return the communication channel to the service.")
+    serviceMessenger = Messenger(ServiceHandler(this))
+    return serviceMessenger!!.binder
+  }
+
+  internal class ServiceHandler(service: BackgroundLocationService) : Handler(Looper.getMainLooper()) {
+    // private val mService = WeakReference<Service>(service)
+    private val messagePluginToService = 1
+
+    override fun handleMessage(msg: Message) {
+      when (msg.what) {
+        messagePluginToService -> {
+          informLocationToDart(msg.obj as Location?)
+        }
+        else -> super.handleMessage(msg)
+      }
+    }
+
+    fun informLocationToDart(location: Location?) {
+      val locale = Locale.JAPAN
+      val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
+      val dateString = dateTimeFormatter.format(LocalDateTime.now())
+      val message = "$dateString,${location?.latitude},${location?.longitude}"
+      try {
+        ULocationDriverPlugin.Companion.toChannel.invokeMethod("informLocationToDart", message)
+      } catch (e: Exception) {
+        print(e)
+      }
+    }
+
   }
 
   override fun onCreate() {
@@ -29,7 +67,6 @@ class BackgroundLocationService : Service() {
     val channelId = "LocationServiceChannel"
     val channelName = "Location Channel"
     val notificationId = 1000
-
     try {
       val notificationChannel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_DEFAULT)
       val notificationManager = applicationContext.getSystemService(NotificationManager::class.java)
@@ -58,6 +95,10 @@ class BackgroundLocationService : Service() {
   override fun onDestroy() {
     // flutterJNI.detachFromNativeAndReleaseResources();
     super.onDestroy()
+  }
+
+  override fun onUnbind(intent: Intent?): Boolean {
+    return super.onUnbind(intent)
   }
 
 }
