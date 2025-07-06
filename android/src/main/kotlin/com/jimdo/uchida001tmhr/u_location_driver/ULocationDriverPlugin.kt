@@ -52,6 +52,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   private lateinit var requestPermissionLauncherBackgroundLocation: ActivityResultLauncher<String>
   private var bound = false
   private var serviceMessenger: Messenger? = null
+  private var activityMessenger: Messenger? = null
 
   companion object {
     lateinit var toChannel: MethodChannel
@@ -85,6 +86,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
     thisActivity = binding.activity
+    activityMessenger = Messenger(ActivityHandler(thisActivity))
     locationCallback = object : LocationCallback() {
       override fun onLocationResult(locationResult: LocationResult) {
         Handler(Looper.getMainLooper()).post {
@@ -187,8 +189,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       }
     }
 
-    private val activityMessenger = Messenger(ActivityHandler(thisActivity))
-
     private val messageActivityToService = 1
 
     fun sendMessageToService(location: Location?) {
@@ -217,6 +217,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         permissionBackgroundLocation == PackageManager.PERMISSION_GRANTED
       ) {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(thisActivity)
+        /*
         try {
           val locationResult = fusedLocationClient.lastLocation
           locationResult.addOnCompleteListener { task ->
@@ -227,10 +228,11 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
               }
             }
           }
-          startLocationUpdates()
         } catch (e: SecurityException) {
           print(e)
         }
+         */
+        startLocationUpdates()
       }
     }
 
