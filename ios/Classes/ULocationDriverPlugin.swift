@@ -14,8 +14,8 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
 
   private static let backgroundSession = CLBackgroundActivitySession()
   private var clLocationManager = CLLocationManager()
-  static var fromChannel = FlutterMethodChannel()
-  static var toChannel = FlutterMethodChannel()
+  static var fromDartChannel = FlutterMethodChannel()
+  static var toDartChannelNameForegournd = FlutterMethodChannel()
   var isScreenActive = false
 
   override init() {
@@ -24,10 +24,10 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   }
 
   public static func register(with registrar: FlutterPluginRegistrar) {
-    fromChannel = FlutterMethodChannel(name: "com.jimdo.uchida001tmhr.u_location_driver/fromDart", binaryMessenger: registrar.messenger())
-    toChannel = FlutterMethodChannel(name: "com.jimdo.uchida001tmhr.u_location_driver.toDart", binaryMessenger: registrar.messenger())
+    fromDartChannel = FlutterMethodChannel(name: "com.jimdo.uchida001tmhr.u_location_driver/fromDart", binaryMessenger: registrar.messenger())
+    toDartChannelNameForegournd = FlutterMethodChannel(name: "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground", binaryMessenger: registrar.messenger())
     let instance = ULocationDriverPlugin()
-    registrar.addMethodCallDelegate(instance, channel: fromChannel)
+    registrar.addMethodCallDelegate(instance, channel: fromDartChannel)
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -61,7 +61,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     /// データ変換（Date→テキスト）
     let dateString = dateFormatter.string(from: Date())
     let message = "\(dateString),\(location.coordinate.latitude),\(location.coordinate .longitude)"
-    toChannel.invokeMethod("informLocationToDart", arguments: message)
+    toDartChannelNameForegournd.invokeMethod("informLocationToDartForeground", arguments: message)
   }
  
   /*

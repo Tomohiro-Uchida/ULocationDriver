@@ -13,14 +13,14 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Message
 import android.os.Messenger
+import androidx.compose.ui.window.application
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat.startForeground
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.messageChangeToBackground
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.messageChangeToForeground
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.messageInformToDart
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toChannelForeground
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toChannelBackground
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toChannelName
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.messageInformToDartBackground
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelForeground
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelBackground
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelNameForegournd
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelNameBackground
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -46,62 +46,42 @@ class BackgroundLocationService : Service() {
     return serviceMessenger!!.binder
   }
 
+  fun informLocationToDartBackground(location: Location?) {
+    val locale = Locale.JAPAN
+    val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
+    val dateString = dateTimeFormatter.format(LocalDateTime.now())
+    val message = "$dateString,${location?.latitude},${location?.longitude}"
+    try {
+      toDartChannelBackground?.invokeMethod("informLocationToDartBackground", message)
+    } catch (e: Exception) {
+      print(e)
+    }
+  }
+
   inner class ServiceHandler(service: BackgroundLocationService) : Handler(Looper.getMainLooper()) {
 
-    var toChannel = toChannelForeground
+    // var toChannel = toChannelForeground
 
     override fun handleMessage(msg: Message) {
       when (msg.what) {
-        messageInformToDart -> {
-          informLocationToDart(msg.obj as Location?)
+        messageInformToDartBackground -> {
+          informLocationToDartBackground(msg.obj as Location?)
         }
+        /*
         messageChangeToForeground -> {
           toChannel = toChannelForeground
         }
         messageChangeToBackground -> {
           toChannel = toChannelBackground
         }
+         */
         else -> super.handleMessage(msg)
       }
     }
 
-    fun informLocationToDart(location: Location?) {
-      val locale = Locale.JAPAN
-      val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
-      val dateString = dateTimeFormatter.format(LocalDateTime.now())
-      val message = "$dateString,${location?.latitude},${location?.longitude}"
-      try {
-        toChannel?.invokeMethod("informLocationToDart", message)
-      } catch (e: Exception) {
-        print(e)
-      }
-    }
-
-  }
-
-  fun  createBackgroundMethodChannel(): MethodChannel? {
-    var backgroundMethodChannel: MethodChannel? = null;
-    var engine: FlutterEngine? = null;
-    if (getEngine() == null) {
-      engine = FlutterEngine(serviceContext)
-      // Define a DartEntrypoint
-      val entrypoint: DartExecutor.DartEntrypoint =
-        DartExecutor.DartEntrypoint.createDefault()
-      // Execute the DartEntrypoint within the FlutterEngine.
-      engine.dartExecutor.executeDartEntrypoint(entrypoint)
-    } else {
-      engine = getEngine();
-    }
-    backgroundMethodChannel = MethodChannel(engine?.dartExecutor?.binaryMessenger!!, toChannelName)!!
-    return backgroundMethodChannel
-  }
-
-  fun getEngine(): FlutterEngine? {
-    return FlutterEngineCache.getInstance().get(toChannelName)
   }
 
   override fun onCreate() {
-    toChannelBackground = createBackgroundMethodChannel()
     super.onCreate()
   }
 
@@ -141,6 +121,5 @@ class BackgroundLocationService : Service() {
   override fun onUnbind(intent: Intent?): Boolean {
     return super.onUnbind(intent)
   }
-
 
 }

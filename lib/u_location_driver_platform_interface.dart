@@ -27,7 +27,7 @@ abstract class ULocationDriverPlatform extends PlatformInterface {
     throw UnimplementedError('activateForeground() has not been implemented.');
   }
 
-  Future<String?> activateBackground() {
+  Future<String?> activateBackground(Function backgroundLocationMain) {
     throw UnimplementedError('activateBackground() has not been implemented.');
   }
 

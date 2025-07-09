@@ -1,9 +1,8 @@
 package com.jimdo.uchida001tmhr.u_location_driver
 
 import android.Manifest
-import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
-import android.annotation.SuppressLint
+import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
@@ -17,10 +16,12 @@ import android.os.Looper
 import android.os.Message
 import android.os.Messenger
 import android.os.RemoteException
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresPermission
+import androidx.compose.ui.window.application
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -28,21 +29,27 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.dart.DartExecutor
+import io.flutter.embedding.engine.loader.FlutterLoader
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
+import io.flutter.view.FlutterCallbackInformation
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 
-/** ULocationDriverPlugin */
 class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   /// The MethodChannel that will the communication between Flutter and native Android
   ///
   /// This local reference serves to register the plugin with the Flutter Engine and unregister it
   /// when the Flutter Engine is detached from the Activity
-  private lateinit var fromChannel: MethodChannel
-  var isScreenActive = false
+  private lateinit var fromDartChannel: MethodChannel
   private lateinit var thisActivity: Activity
   private lateinit var thisContext: Context
   private lateinit var locationCallback: LocationCallback
@@ -52,15 +59,19 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   private var bound = false
   private var serviceMessenger: Messenger? = null
   private var activityMessenger: Messenger? = null
+  private var flutterEngine: FlutterEngine? = null
 
   companion object {
-    var toChannelForeground: MethodChannel? = null
-    var toChannelBackground: MethodChannel? = null
-    val toChannelName = "com.jimdo.uchida001tmhr.u_location_driver/toDart"
-    val messageInformToDart = 1
-    val messageChangeToForeground = 2
-    val messageChangeToBackground = 3
-
+    var isScreenActive = false
+    var toDartChannelForeground: MethodChannel? = null
+    var toDartChannelBackground: MethodChannel? = null
+    val toDartChannelNameForegournd = "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground"
+    val toDartChannelNameBackground = "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground"
+    // val messageInformToDartForeground = 1000
+    val messageInformToDartBackground = 1001
+    // val messageChangeToForeground = 2000
+    // val messageChangeToBackground = 2001
+    val CALLBACK_HANDLE_KEY = "callback_handle_key"
   }
 
   private fun getLocationPermissionForegroundLocation() {
@@ -94,9 +105,13 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     activityMessenger = Messenger(ActivityHandler(thisActivity))
     locationCallback = object : LocationCallback() {
       override fun onLocationResult(locationResult: LocationResult) {
-        Handler(Looper.getMainLooper()).post {
-          // ここにUIスレッドで実行したいコードを書く
-          sendMessageToService(locationResult.lastLocation)
+        if (isScreenActive) {
+          informLocationToDartForeground(locationResult.lastLocation)
+        } else {
+          Handler(Looper.getMainLooper()).post {
+            // ここにUIスレッドで実行したいコードを書く
+            sendMessageToService(locationResult.lastLocation)
+          }
         }
       }
     }
@@ -124,10 +139,10 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     print("onAttachedToEngine()")
-    fromChannel =
+    fromDartChannel =
       MethodChannel(flutterPluginBinding.binaryMessenger, "com.jimdo.uchida001tmhr.u_location_driver/fromDart")
-    toChannelForeground = MethodChannel(flutterPluginBinding.binaryMessenger, toChannelName)
-    fromChannel.setMethodCallHandler(this)
+    toDartChannelForeground = MethodChannel(flutterPluginBinding.binaryMessenger, toDartChannelNameForegournd)
+    fromDartChannel.setMethodCallHandler(this)
     thisContext = flutterPluginBinding.applicationContext
   }
 
@@ -149,24 +164,27 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     when (call.method) {
       "activateForeground" -> {
         isScreenActive = true
-        thisContext.startForegroundService(intentLocation)
-        thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
-        serviceChangeToForeground()
+        stopFlutterBackgroundEngine()
+        // thisContext.startForegroundService(intentLocation)
+        // thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
+        // serviceChangeToForeground()
         getLocationPermissionForegroundLocation()
         result.success("success")
       }
 
       "activateBackground" -> {
         isScreenActive = false
+        startFlutterBackgroundEngine(call.argument<Long>(CALLBACK_HANDLE_KEY)!!)
         thisContext.startForegroundService(intentLocation)
         thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
-        serviceChangeToBackground()
+        // serviceChangeToBackground()
         getLocationPermissionForegroundLocation()
         result.success("success")
       }
 
       "inactivate" -> {
         isScreenActive = false
+        stopFlutterBackgroundEngine()
         thisContext.stopService(intentLocation)
         stopLocationUpdates()
         result.success("success")
@@ -178,7 +196,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-    fromChannel.setMethodCallHandler(null)
+    fromDartChannel.setMethodCallHandler(null)
   }
 
   internal class ActivityHandler(activity: Activity) : Handler(Looper.getMainLooper()) {
@@ -198,7 +216,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
   fun sendMessageToService(location: Location?) {
     try {
-      val msg = Message.obtain(null, messageInformToDart, 0, 0)
+      val msg = Message.obtain(null, messageInformToDartBackground, 0, 0)
       msg.replyTo = activityMessenger
       msg.obj = location
       serviceMessenger?.send(msg)
@@ -207,6 +225,19 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
   }
 
+  fun informLocationToDartForeground(location: Location?) {
+    val locale = Locale.JAPAN
+    val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
+    val dateString = dateTimeFormatter.format(LocalDateTime.now())
+    val message = "$dateString,${location?.latitude},${location?.longitude}"
+    try {
+      toDartChannelForeground?.invokeMethod("informLocationToDartForeground", message)
+    } catch (e: Exception) {
+      print(e)
+    }
+  }
+
+  /*
   fun serviceChangeToForeground() {
     try {
       val msg = Message.obtain(null, messageChangeToForeground, 0, 0)
@@ -226,7 +257,9 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       e.printStackTrace()
     }
   }
+   */
 
+  @RequiresPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
   private fun requestDeviceLocation() {
     val permissionFineLocation = ContextCompat.checkSelfPermission(
       thisContext.applicationContext,
@@ -261,6 +294,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
   }
 
+  @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
   private fun startLocationUpdates() {
     if (isScreenActive) {
       fusedLocationClient.requestLocationUpdates(
@@ -279,6 +313,56 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
   private fun stopLocationUpdates() {
     fusedLocationClient.removeLocationUpdates(locationCallback)
+  }
+
+  /**
+   * 新しいFlutterEngineを起動し、Dartのバックグラウンドエントリポイントを実行します。
+   */
+  private fun startFlutterBackgroundEngine(callbackHandle: Long) {
+    val app: ULApplication = getApplication() as ULApplication
+    // FlutterEngineGroupから新しいEngineを作成し、指定されたDartエントリポイントを実行
+    flutterEngine = app.flutterEngineGroup.createAndRunEngine(
+      thisContext,
+      DartExecutor.DartEntrypoint(
+        FlutterLoader().findAppBundlePath(),
+        FlutterCallbackInformation.lookupCallbackInformation(callbackHandle).callbackName
+      )
+    )
+
+    // バックグラウンドEngineと通信するためのMethodChannelを初期化
+    toDartChannelBackground = MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, toDartChannelNameBackground)
+    Log.d("BackgroundService", "Flutter background engine started with handle: $callbackHandle.")
+
+
+    /*
+    val flutterLoader = FlutterLoader().apply {
+      startInitialization(thisContext)
+      ensureInitializationComplete(thisContext, arrayOf())
+    }
+
+    val callbackInfo = FlutterCallbackInformation.lookupCallbackInformation(callbackHandle)
+
+    if (callbackInfo == null) {
+      Log.e("ERROR:", "failed to find callback info")
+      return
+    }
+
+    val args = DartExecutor.DartCallback(
+      thisContext.getAssets(),
+      flutterLoader.findAppBundlePath(),
+      callbackInfo
+    )
+
+    flutterEngine = FlutterEngine(thisContext).apply {
+      getDartExecutor().executeDartCallback(args)
+    }
+     */
+
+  }
+
+  private fun stopFlutterBackgroundEngine() {
+    flutterEngine?.destroy()
+    flutterEngine = null
   }
 
 }

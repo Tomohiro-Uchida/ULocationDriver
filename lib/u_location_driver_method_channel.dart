@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/services.dart';
 
 import 'u_location_driver_platform_interface.dart';
@@ -14,8 +16,10 @@ class MethodChannelULocationDriver extends ULocationDriverPlatform {
   }
 
   @override
-  Future<String?> activateBackground() async {
-    final result = await methodChannel.invokeMethod<String>("activateBackground");
+  Future<String?> activateBackground(Function backgroundLocationMain) async {
+    final callbackHandle = PluginUtilities.getCallbackHandle(backgroundLocationMain());
+    final rawHandle = callbackHandle?.toRawHandle();
+    final result = await methodChannel.invokeMethod<String>("activateBackground", {'callbackHandle': rawHandle});
     return result;
   }
 

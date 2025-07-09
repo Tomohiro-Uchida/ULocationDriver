@@ -6,8 +6,10 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 class MockULocationDriverPlatform
     with MockPlatformInterfaceMixin
     implements ULocationDriverPlatform {
+
   @override
-  Future<String?> activateBackground() {
+  Future<String?> activateBackground(Function backgroundLocationMain) {
+    // TODO: implement activateBackground
     throw UnimplementedError();
   }
 
@@ -20,6 +22,7 @@ class MockULocationDriverPlatform
   Future<String?> inactivate() {
     throw UnimplementedError();
   }
+
 }
 
 void main() {
