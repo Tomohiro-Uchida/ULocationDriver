@@ -28,7 +28,11 @@ class SendToHost {
         ..recipients.addAll([toAddress])
         ..subject = "Message from Native"
         ..text = "Message from Native: $messgae";
-      mailer.send(message, smtpServer);
+      try {
+        await mailer.send(message, smtpServer);
+      } catch(e) {
+        print(e);
+      }
     }
   }
 

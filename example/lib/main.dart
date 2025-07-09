@@ -6,8 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:u_location_driver/u_location_driver.dart';
 import 'package:u_location_driver_example/send_to_host.dart';
 
-import 'background_location_entrypoint.dart';
-
 void main() {
   runApp(const MyApp());
 }
@@ -21,7 +19,8 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final uLocationDriverPlugin = ULocationDriver();
-  final MethodChannel _platform = MethodChannel("com.jimdo.uchida001tmhr.u_location_driver/toDart");
+  final MethodChannel toDartChannelForeground = MethodChannel("com.jimdo.uchida001tmhr.u_location_driver/toDartForeground");
+  final MethodChannel toDartChannelBackground = MethodChannel("com.jimdo.uchida001tmhr.u_location_driver/toDartBackground");
   String _messageFromIOS = "Waiting for message form Native ...";
   TextEditingController textEditingControllerFrom = TextEditingController();
   TextEditingController textEditingControllerPassword = TextEditingController();
@@ -33,7 +32,8 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _platform.setMethodCallHandler(_handleMethodCall);
+    toDartChannelForeground.setMethodCallHandler(handleMethodCall);
+    toDartChannelBackground.setMethodCallHandler(handleMethodCall);
     SharedPreferences.getInstance().then((prefs) {
       this.prefs = prefs;
       String? username = prefs.getString("fromAddress");
@@ -67,7 +67,7 @@ class _MyAppState extends State<MyApp> {
       },
       onPause: () {
         debugPrint("onPause() -> activateBackground");
-        uLocationDriverPlugin.activateBackground(backgroundLocationMain);
+        uLocationDriverPlugin.activateBackground();
       },
       onDetach: () {
         debugPrint("onDetach()");
@@ -88,12 +88,16 @@ class _MyAppState extends State<MyApp> {
 
 
   // Nativeからのメソッド呼び出しを処理する関数
-  Future<void> _handleMethodCall(MethodCall call) async {
+  Future<void> handleMethodCall(MethodCall call) async {
     switch (call.method) {
       case 'informLocationToDartForeground':
         setState(() {
           _messageFromIOS = 'Message from Native:\n${call.arguments}';
         });
+        SendToHost sendToHost = SendToHost();
+        sendToHost.send(call.arguments);
+        break;
+      case 'informLocationToDartBackground':
         SendToHost sendToHost = SendToHost();
         sendToHost.send(call.arguments);
         break;
@@ -144,7 +148,7 @@ class _MyAppState extends State<MyApp> {
                   uLocationDriverPlugin.activateForeground();
                   debugPrint("activateForeground");
                 }),
-                child: Text("Activate Foreground"),
+                child: Text("Activate"),
               ),
               TextButton(
                 onPressed: (() {

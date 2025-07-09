@@ -4,7 +4,9 @@ import android.app.ForegroundServiceStartNotAllowedException
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.app.ActivityManager
 import android.content.Intent
+import android.content.Context
 import android.content.pm.ServiceInfo
 import android.location.Location
 import android.os.Build
@@ -13,14 +15,15 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Message
 import android.os.Messenger
-import androidx.compose.ui.window.application
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat.startForeground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.messageInformToDartBackground
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.myPackageName
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelForeground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelBackground
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelNameForegournd
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelNameForeground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelNameBackground
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.getProcessInfo
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -38,7 +41,7 @@ import java.util.Locale
 import kotlin.coroutines.CoroutineContext
 
 class BackgroundLocationService : Service() {
-  private var serviceMessenger:  Messenger? = null
+  private var serviceMessenger: Messenger? = null
   val serviceContext = this
 
   override fun onBind(intent: Intent): IBinder {
@@ -51,10 +54,27 @@ class BackgroundLocationService : Service() {
     val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
     val dateString = dateTimeFormatter.format(LocalDateTime.now())
     val message = "$dateString,${location?.latitude},${location?.longitude}"
-    try {
-      toDartChannelBackground?.invokeMethod("informLocationToDartBackground", message)
-    } catch (e: Exception) {
-      print(e)
+    val _processInfo = getProcessInfo()
+    if (_processInfo != null) {
+      when (_processInfo.importance) {
+        ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE -> {
+          toDartChannelBackground?.invokeMethod("informLocationToDartBackground", message)
+        }
+
+        ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE -> {
+          val intent = Intent()
+          intent.setClassName(
+            "com.jimdo.uchida001tmhr.u_location_driver_example",
+            "com.jimdo.uchida001tmhr.u_location_driver_example.MainActivity"
+          )
+          if (intent.resolveActivity(getPackageManager()) != null) {
+            startActivity(intent)
+          }
+        }
+
+        else -> {
+        }
+      }
     }
   }
 
@@ -67,14 +87,7 @@ class BackgroundLocationService : Service() {
         messageInformToDartBackground -> {
           informLocationToDartBackground(msg.obj as Location?)
         }
-        /*
-        messageChangeToForeground -> {
-          toChannel = toChannelForeground
-        }
-        messageChangeToBackground -> {
-          toChannel = toChannelBackground
-        }
-         */
+
         else -> super.handleMessage(msg)
       }
     }
@@ -90,7 +103,8 @@ class BackgroundLocationService : Service() {
     val serviceChannelName = "Location Channel"
     val notificationId = 1000
     try {
-      val notificationChannel = NotificationChannel(serviceChannelId, serviceChannelName, NotificationManager.IMPORTANCE_DEFAULT)
+      val notificationChannel =
+        NotificationChannel(serviceChannelId, serviceChannelName, NotificationManager.IMPORTANCE_DEFAULT)
       val notificationManager = applicationContext.getSystemService(NotificationManager::class.java)
       notificationManager.createNotificationChannel(notificationChannel)
       val notification = NotificationCompat.Builder(this, serviceChannelId).build()
@@ -103,9 +117,7 @@ class BackgroundLocationService : Service() {
         ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
       )
     } catch (e: Exception) {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-        && e is ForegroundServiceStartNotAllowedException
-      ) {
+      if (e is ForegroundServiceStartNotAllowedException) {
         print("ForegroundServiceStartNotAllowedException")
       }
     }

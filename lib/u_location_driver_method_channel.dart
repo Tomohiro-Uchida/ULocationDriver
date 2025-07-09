@@ -16,10 +16,8 @@ class MethodChannelULocationDriver extends ULocationDriverPlatform {
   }
 
   @override
-  Future<String?> activateBackground(Function backgroundLocationMain) async {
-    final callbackHandle = PluginUtilities.getCallbackHandle(backgroundLocationMain());
-    final rawHandle = callbackHandle?.toRawHandle();
-    final result = await methodChannel.invokeMethod<String>("activateBackground", {'callbackHandle': rawHandle});
+  Future<String?> activateBackground() async {
+    final result = await methodChannel.invokeMethod<String>("activateBackground");
     return result;
   }
 

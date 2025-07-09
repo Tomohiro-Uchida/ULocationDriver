@@ -7,8 +7,8 @@ class ULocationDriver {
     return ULocationDriverPlatform.instance.activateForeground();
   }
 
-  Future<String?> activateBackground(Function backgroundLocationMain) {
-    return ULocationDriverPlatform.instance.activateBackground(backgroundLocationMain);
+  Future<String?> activateBackground() {
+    return ULocationDriverPlatform.instance.activateBackground();
   }
 
   Future<String?> inactivate() {
