@@ -8,7 +8,7 @@ class MockULocationDriverPlatform
     implements ULocationDriverPlatform {
 
   @override
-  Future<String?> activateBackground(Function backgroundLocationMain) {
+  Future<String?> activateBackground() {
     // TODO: implement activateBackground
     throw UnimplementedError();
   }

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/cupertino.dart';
 import 'package:mailer/mailer.dart' as mailer;
 import 'package:mailer/smtp_server.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,7 +32,7 @@ class SendToHost {
       try {
         await mailer.send(message, smtpServer);
       } catch(e) {
-        print(e);
+        debugPrint(e.toString());
       }
     }
   }

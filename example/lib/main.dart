@@ -6,6 +6,50 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:u_location_driver/u_location_driver.dart';
 import 'package:u_location_driver_example/send_to_host.dart';
 
+// Nativeからのメソッド呼び出しを処理する関数
+Future<void> handleMethodCall(MethodCall call) async {
+  switch (call.method) {
+    case 'informLocationToDartForeground':
+      break;
+    case 'informLocationToDartBackground':
+      SendToHost sendToHost = SendToHost();
+      sendToHost.send(call.arguments);
+      break;
+    default:
+    // 未知のメソッドが呼ばれた場合
+      debugPrint('Unknown method: ${call.method}');
+      throw MissingPluginException('Unknown method ${call.method}');
+  }
+}
+
+// Dartのバックグラウンドエントリポイント
+// トップレベル（静的）関数である必要があります。
+@pragma('vm:entry-point') // JIT/AOTコンパイラにエントリポイントであることを知らせる
+void backgroundMain() {
+  // ここに、バックグラウンドで実行したいFlutter/Dartの処理を書きます。
+  // 例えば、HTTPリクエストの送信、データベース操作、ローカル通知の送信など。
+  debugPrint("Flutter background task started!");
+
+  // SharedPreferencesなどのプラグインも通常通り利用できます。
+  // await SharedPreferences.getInstance().then((prefs) {
+  //   prefs.setInt('background_run_count', (prefs.getInt('background_run_count') ?? 0) + 1);
+  // });
+
+  // 必要に応じて、Android Native側に結果を返すこともできます。
+  // MethodChannel channel = MethodChannel('your_plugin_channel_name');
+  // channel.invokeMethod('backgroundTaskCompleted', {'status': 'success'});
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final MethodChannel toDartChannelBackground = MethodChannel(
+      "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground");
+
+  toDartChannelBackground.setMethodCallHandler(handleMethodCall);
+
+  debugPrint("Flutter background task finished!");
+
+}
+
+@pragma('vm:entry-point') // JIT/AOTコンパイラにエントリポイントであることを知らせる
 void main() {
   runApp(const MyApp());
 }
@@ -20,7 +64,6 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final uLocationDriverPlugin = ULocationDriver();
   final MethodChannel toDartChannelForeground = MethodChannel("com.jimdo.uchida001tmhr.u_location_driver/toDartForeground");
-  final MethodChannel toDartChannelBackground = MethodChannel("com.jimdo.uchida001tmhr.u_location_driver/toDartBackground");
   String _messageFromIOS = "Waiting for message form Native ...";
   TextEditingController textEditingControllerFrom = TextEditingController();
   TextEditingController textEditingControllerPassword = TextEditingController();
@@ -33,7 +76,6 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     toDartChannelForeground.setMethodCallHandler(handleMethodCall);
-    toDartChannelBackground.setMethodCallHandler(handleMethodCall);
     SharedPreferences.getInstance().then((prefs) {
       this.prefs = prefs;
       String? username = prefs.getString("fromAddress");
@@ -98,8 +140,6 @@ class _MyAppState extends State<MyApp> {
         sendToHost.send(call.arguments);
         break;
       case 'informLocationToDartBackground':
-        SendToHost sendToHost = SendToHost();
-        sendToHost.send(call.arguments);
         break;
       default:
       // 未知のメソッドが呼ばれた場合

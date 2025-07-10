@@ -47,22 +47,20 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   ///
   /// This local reference serves to register the plugin with the Flutter Engine and unregister it
   /// when the Flutter Engine is detached from the Activity
-  private lateinit var fromDartChannel: MethodChannel
-  private lateinit var locationCallback: LocationCallback
-  private lateinit var fusedLocationClient: FusedLocationProviderClient
   private lateinit var requestPermissionLauncherFineLocation: ActivityResultLauncher<String>
   private lateinit var requestPermissionLauncherBackgroundLocation: ActivityResultLauncher<String>
   private var bound = false
-  private var serviceMessenger: Messenger? = null
-  private var activityMessenger: Messenger? = null
 
   companion object {
     private lateinit var thisActivity: Activity
     private lateinit var thisContext: Context
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var fromDartChannel: MethodChannel
+    private lateinit var locationCallback: LocationCallback
     var toDartChannelForeground: MethodChannel? = null
-    var toDartChannelBackground: MethodChannel? = null
     val toDartChannelNameForeground = "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground"
-    val toDartChannelNameBackground = "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground"
+    private var serviceMessenger: Messenger? = null
+    private var activityMessenger: Messenger? = null
 
     // val messageInformToDartForeground = 1000
     val messageInformToDartBackground = 1001
@@ -151,10 +149,13 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     print("onAttachedToEngine()")
     fromDartChannel =
       MethodChannel(flutterPluginBinding.binaryMessenger, "com.jimdo.uchida001tmhr.u_location_driver/fromDart")
-    toDartChannelForeground = MethodChannel(flutterPluginBinding.binaryMessenger, toDartChannelNameForeground)
-    toDartChannelBackground = MethodChannel(flutterPluginBinding.binaryMessenger, toDartChannelNameBackground)
     fromDartChannel.setMethodCallHandler(this)
+    if (toDartChannelForeground == null) {
+      toDartChannelForeground = MethodChannel(flutterPluginBinding.binaryMessenger, toDartChannelNameForeground)
+    }
     thisContext = flutterPluginBinding.applicationContext
+    val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
+    thisContext.stopService(intentLocation)
   }
 
   private val connection = object : ServiceConnection {
@@ -180,6 +181,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       }
 
       "activateBackground" -> {
+        toDartChannelForeground = null
         thisContext.startForegroundService(intentLocation)
         thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
         getLocationPermissionLocation()

@@ -1,7 +1,4 @@
-import 'dart:ui';
-
 import 'package:flutter/services.dart';
-
 import 'u_location_driver_platform_interface.dart';
 
 /// An implementation of [ULocationDriverPlatform] that uses method channels.
