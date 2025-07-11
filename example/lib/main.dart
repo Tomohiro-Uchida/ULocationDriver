@@ -97,19 +97,28 @@ class _MyAppState extends State<MyApp> {
       onShow: () {
         debugPrint("onShow()");
       },
-      onResume: () {
+      onResume: () async {
         debugPrint("onResume() -> activateForeground");
-        uLocationDriverPlugin.activateForeground();
+        try {
+          await uLocationDriverPlugin.activateForeground();
+        } catch (_) {
+        }
       },
       onHide: () {
         debugPrint("onHide()");
       },
-      onInactive: () {
-        debugPrint("onInactive()");
+      onInactive: () async {
+        debugPrint("onInactive() -> activateBackground");
+        try {
+          final result = await uLocationDriverPlugin.activateBackground();
+          if (result == "success") {
+            SystemNavigator.pop();
+          }
+        } catch (_) {
+        }
       },
       onPause: () {
-        debugPrint("onPause() -> activateBackground");
-        uLocationDriverPlugin.activateBackground();
+        debugPrint("onPause()");
       },
       onDetach: () {
         debugPrint("onDetach()");

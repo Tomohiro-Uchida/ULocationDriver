@@ -57,6 +57,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var fromDartChannel: MethodChannel
     private lateinit var locationCallback: LocationCallback
+    private var serviceComponentName: ComponentName? = null
     var toDartChannelForeground: MethodChannel? = null
     val toDartChannelNameForeground = "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground"
     private var serviceMessenger: Messenger? = null
@@ -111,14 +112,17 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     activityMessenger = Messenger(ActivityHandler(thisActivity))
     locationCallback = object : LocationCallback() {
       override fun onLocationResult(locationResult: LocationResult) {
-        val _prcessInfo = getProcessInfo()
-        if (_prcessInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND ||
-          _prcessInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) {
-          informLocationToDartForeground(locationResult.lastLocation)
-        } else {
-          Handler(Looper.getMainLooper()).post {
-            // ここにUIスレッドで実行したいコードを書く
-            sendMessageToService(locationResult.lastLocation)
+        val _processInfo = getProcessInfo()
+        if (_processInfo != null) {
+          if (_processInfo.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND ||
+            _processInfo.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
+          ) {
+            informLocationToDartForeground(locationResult.lastLocation)
+          } else {
+            Handler(Looper.getMainLooper()).post {
+              // ここにUIスレッドで実行したいコードを書く
+              sendMessageToService(locationResult.lastLocation)
+            }
           }
         }
       }
@@ -175,23 +179,45 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
     when (call.method) {
       "activateForeground" -> {
-        thisContext.stopService(intentLocation)
+        val _error = if (serviceComponentName == null) {
+          false
+        } else {
+          serviceComponentName = null
+          thisContext.stopService(intentLocation)
+        }
         getLocationPermissionLocation()
-        result.success("success")
+        if (_error) {
+          result.error("-1000", "Activate Failed", "Failed in activateForeground")
+        } else {
+          result.success("success")
+        }
       }
 
       "activateBackground" -> {
         toDartChannelForeground = null
-        thisContext.startForegroundService(intentLocation)
-        thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
+        serviceComponentName = thisContext.startForegroundService(intentLocation)
+        val _success = thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
         getLocationPermissionLocation()
-        result.success("success")
+        if (serviceComponentName != null && _success) {
+          result.success("success")
+        } else {
+          result.error("-1010", "Activate Faild", "Failed in activateBackground")
+        }
       }
 
       "inactivate" -> {
-        thisContext.stopService(intentLocation)
+        val _error = if (serviceComponentName == null) {
+          false
+        } else {
+          serviceComponentName = null
+          thisContext.stopService(intentLocation)
+        }
         stopLocationUpdates()
-        result.success("success")
+        if (_error) {
+          result.error("-1020", "Inactivate Failed", "Failed in inactivate")
+        } else {
+          result.success("success")
+        }
       }
 
       else ->
@@ -263,9 +289,9 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
   @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
   private fun startLocationUpdates() {
-    val _prcessInfo = getProcessInfo()
-    if (_prcessInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND ||
-      _prcessInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) {
+    val _processInfo = getProcessInfo()
+    if (_processInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND ||
+      _processInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) {
       fusedLocationClient.requestLocationUpdates(
         LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 10 * 1000 /*10秒*/)
           .setMinUpdateIntervalMillis(5 * 1000 /*5秒*/)
