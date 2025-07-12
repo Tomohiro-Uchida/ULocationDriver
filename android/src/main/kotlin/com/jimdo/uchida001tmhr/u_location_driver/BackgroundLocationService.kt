@@ -73,6 +73,7 @@ class BackgroundLocationService : Service() {
           }
           toDartChannelBackground?.invokeMethod("informLocationToDartBackground", message)
         }
+
         else -> {
         }
       }
@@ -128,7 +129,10 @@ class BackgroundLocationService : Service() {
       flutterEngine = FlutterEngine(this)
 
       // Dartエントリポイントを指定して実行
-      val path = FlutterInjector.instance().flutterLoader().findAppBundlePath()
+      val flutterLoader = FlutterLoader()
+      flutterLoader.startInitialization(serviceContext)
+      flutterLoader.ensureInitializationComplete(serviceContext, arrayOf())
+      val path = flutterLoader.findAppBundlePath()
       val dartEntrypoint = DartExecutor.DartEntrypoint(path, DART_ENTRYPOINT_FUNCTION_NAME)
       flutterEngine?.dartExecutor?.executeDartEntrypoint(dartEntrypoint)
       toDartChannelBackground = MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, toDartChannelNameBackground)
