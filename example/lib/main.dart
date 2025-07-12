@@ -25,7 +25,8 @@ Future<void> handleMethodCallBackground(MethodCall call) async {
 // Dartのバックグラウンドエントリポイント
 // トップレベル（静的）関数である必要があります。
 @pragma('vm:entry-point') // JIT/AOTコンパイラにエントリポイントであることを知らせる
-void backgroundMain() {
+void backgroundMain() {  // The name must be backgroundMain().
+
   // ここに、バックグラウンドで実行したいFlutter/Dartの処理を書きます。
   // 例えば、HTTPリクエストの送信、データベース操作、ローカル通知の送信など。
   debugPrint("Flutter background task started!");
@@ -50,7 +51,7 @@ void backgroundMain() {
 }
 
 @pragma('vm:entry-point') // JIT/AOTコンパイラにエントリポイントであることを知らせる
-void main() {
+void main() { // The name must be main().
   debugPrint("main()");
   runApp(const MyApp());
 }

@@ -31,9 +31,13 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.loader.FlutterLoader
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
+import io.flutter.embedding.engine.dart.DartExecutor
+import io.flutter.embedding.engine.dart.DartExecutor.DartEntrypoint
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
@@ -43,10 +47,8 @@ import java.time.format.FormatStyle
 import java.util.Locale
 
 class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
-  /// The MethodChannel that will the communication between Flutter and native Android
-  ///
-  /// This local reference serves to register the plugin with the Flutter Engine and unregister it
-  /// when the Flutter Engine is detached from the Activity
+  val DART_ENTRYPOINT_FUNCTION_NAME_MAIN = "main"
+  private var flutterEngineMain: FlutterEngine? = null
   private lateinit var requestPermissionLauncherFineLocation: ActivityResultLauncher<String>
   private lateinit var requestPermissionLauncherBackgroundLocation: ActivityResultLauncher<String>
   private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -54,26 +56,8 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   companion object {
     private lateinit var thisActivity: Activity
     private lateinit var thisContext: Context
-    private lateinit var fromDartChannel: MethodChannel
-    private lateinit var locationCallback: LocationCallback
-    private var serviceComponentName: ComponentName? = null
-    private var bound = false
-    private val connection = object : ServiceConnection {
-      override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-        serviceMessenger = Messenger(binder)
-        bound = true
-      }
-
-      override fun onServiceDisconnected(name: ComponentName?) {
-        serviceMessenger = null
-        bound = false
-      }
-    }
     var toDartChannelForeground: MethodChannel? = null
     val toDartChannelNameForeground = "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground"
-    private var serviceMessenger: Messenger? = null
-    private var activityMessenger: Messenger? = null
-
     // val messageInformToDartForeground = 1000
     val messageInformToDartBackground = 1001
     var myPackageName: String? = ""
@@ -88,8 +72,25 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       }
       return null
     }
-
   }
+
+  private lateinit var fromDartChannel: MethodChannel
+  private lateinit var locationCallback: LocationCallback
+  private var serviceComponentName: ComponentName? = null
+  private var bound = false
+  private val connection = object : ServiceConnection {
+    override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+      serviceMessenger = Messenger(binder)
+      bound = true
+    }
+
+    override fun onServiceDisconnected(name: ComponentName?) {
+      serviceMessenger = null
+      bound = false
+    }
+  }
+  private var serviceMessenger: Messenger? = null
+  private var activityMessenger: Messenger? = null
 
   private fun getLocationPermissionLocation() {
     val permissionFineLocation = ContextCompat.checkSelfPermission(
@@ -115,36 +116,73 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
   }
 
+  fun restartMainFultterEngine() {
+    if (flutterEngineMain == null) {
+      // FlutterEngineを初期化
+      flutterEngineMain = FlutterEngine(thisContext)
+      // Dartエントリポイントを指定して実行
+      val flutterLoader = FlutterLoader()
+      flutterLoader.startInitialization(thisContext)
+      flutterLoader.ensureInitializationComplete(thisContext, arrayOf())
+      val path = flutterLoader.findAppBundlePath()
+      val dartEntrypoint = DartExecutor.DartEntrypoint(path, DART_ENTRYPOINT_FUNCTION_NAME_MAIN)
+      flutterEngineMain?.dartExecutor?.executeDartEntrypoint(dartEntrypoint)
+      toDartChannelForeground = MethodChannel(flutterEngineMain!!.dartExecutor.binaryMessenger, toDartChannelNameForeground)
+    }
+  }
+
+  override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+    println("onAttachedToEngine()")
+    fromDartChannel =
+      MethodChannel(flutterPluginBinding.binaryMessenger, "com.jimdo.uchida001tmhr.u_location_driver/fromDart")
+    fromDartChannel.setMethodCallHandler(this)
+    if (toDartChannelForeground == null) {
+      toDartChannelForeground = MethodChannel(flutterPluginBinding.binaryMessenger, toDartChannelNameForeground)
+    }
+    thisContext = flutterPluginBinding.applicationContext
+  }
+
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
-    println("onAttachedToActivity() - 0")
-    myPackageName = binding.activity.intent.getComponent()?.getPackageName()
     println("onAttachedToActivity() - 1")
-    thisActivity = binding.activity
+    myPackageName = binding.activity.intent.getComponent()?.getPackageName()
     println("onAttachedToActivity() - 2")
-    activityMessenger = Messenger(ActivityHandler(thisActivity))
+    thisActivity = binding.activity
     println("onAttachedToActivity() - 3")
+    activityMessenger = Messenger(ActivityHandler(thisActivity))
+    println("onAttachedToActivity() - 4")
     locationCallback = object : LocationCallback() {
       override fun onLocationResult(locationResult: LocationResult) {
         val _processInfo = getProcessInfo()
-        println("onAttachedToActivity() - 4")
+        println("onLocationResult() - 1")
         if (_processInfo != null) {
-          println("onAttachedToActivity() - 5")
+          println("onLocationResult() - 2")
           if (_processInfo.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND ||
             _processInfo.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
           ) {
-            println("onAttachedToActivity() - 6")
+            println("onLocationResult() - 3")
             informLocationToDartForeground(locationResult.lastLocation)
           } else {
-            println("onAttachedToActivity() - 7")
+            println("onLocationResult() - 4")
             Handler(Looper.getMainLooper()).post {
               // ここにUIスレッドで実行したいコードを書く
-              println("onAttachedToActivity() - 8")
+              println("onLocationResult() - 5")
               sendMessageToService(locationResult.lastLocation)
             }
           }
         }
       }
     }
+
+    println("onAttachedToActivity() - 5")
+    val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
+    if (bound) {
+      println("onAttachedToActivity() - 6")
+      thisContext.unbindService(connection)
+    }
+    println("onAttachedToActivity() - 6")
+    thisContext.stopService(intentLocation)
+    println("onAttachedToActivity() - 7 -> restartMainFultterEngine()")
+    restartMainFultterEngine()
 
     requestPermissionLauncherFineLocation =
       (thisActivity as ComponentActivity).registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -170,20 +208,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     println("onDetachedFromActivity()")
   }
 
-  override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    println("onAttachedToEngine()")
-    fromDartChannel =
-      MethodChannel(flutterPluginBinding.binaryMessenger, "com.jimdo.uchida001tmhr.u_location_driver/fromDart")
-    fromDartChannel.setMethodCallHandler(this)
-    if (toDartChannelForeground == null) {
-      toDartChannelForeground = MethodChannel(flutterPluginBinding.binaryMessenger, toDartChannelNameForeground)
-    }
-    thisContext = flutterPluginBinding.applicationContext
-    // val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
-    // thisContext.unbindService(connection)
-    // thisContext.stopService(intentLocation)
-  }
-
 
   override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
     println("onMethodCall()")
@@ -194,7 +218,9 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
           false
         } else {
           serviceComponentName = null
-          thisContext.unbindService(connection)
+          if (bound) {
+            thisContext.unbindService(connection)
+          }
           thisContext.stopService(intentLocation)
         }
         getLocationPermissionLocation()
@@ -222,7 +248,9 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
           false
         } else {
           serviceComponentName = null
-          thisContext.unbindService(connection)
+          if (bound) {
+            thisContext.unbindService(connection)
+          }
           thisContext.stopService(intentLocation)
         }
         stopLocationUpdates()

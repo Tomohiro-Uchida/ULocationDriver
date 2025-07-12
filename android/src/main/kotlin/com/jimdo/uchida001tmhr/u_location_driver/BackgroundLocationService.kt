@@ -17,11 +17,10 @@ import android.os.Message
 import android.os.Messenger
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat.startForeground
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.getProcessInfo
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.messageInformToDartBackground
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.myPackageName
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelForeground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelNameForeground
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.getProcessInfo
 import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.loader.FlutterLoader
@@ -42,15 +41,26 @@ import kotlin.coroutines.CoroutineContext
 class BackgroundLocationService : Service() {
   private var serviceMessenger: Messenger? = null
   val serviceContext = this
+  val DART_ENTRYPOINT_FUNCTION_NAME_BACKGROUND = "backgroundMain"
+  private var flutterEngineBackground: FlutterEngine? = null
+  var toDartChannelBackground: MethodChannel? = null
+  val toDartChannelNameBackground = "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground"
 
-  companion object {
-    // Dartエントリポイントの名前 (main() ではないので注意)
-    // lib/main.dart に backgroundMain 関数が定義されていると仮定
-    val DART_ENTRYPOINT_FUNCTION_NAME = "backgroundMain"
-    private var flutterEngine: FlutterEngine? = null
-    var toDartChannelBackground: MethodChannel? = null
-    val toDartChannelNameBackground = "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground"
+  fun startHeadlessFultterEngine() {
+    if (flutterEngineBackground == null) {
+      // FlutterEngineを初期化
+      flutterEngineBackground = FlutterEngine(serviceContext)
+      // Dartエントリポイントを指定して実行
+      val flutterLoader = FlutterLoader()
+      flutterLoader.startInitialization(serviceContext)
+      flutterLoader.ensureInitializationComplete(serviceContext, arrayOf())
+      val path = flutterLoader.findAppBundlePath()
+      val dartEntrypoint = DartExecutor.DartEntrypoint(path, DART_ENTRYPOINT_FUNCTION_NAME_BACKGROUND)
+      flutterEngineBackground?.dartExecutor?.executeDartEntrypoint(dartEntrypoint)
+      toDartChannelBackground = MethodChannel(flutterEngineBackground!!.dartExecutor.binaryMessenger, toDartChannelNameBackground)
+    }
   }
+
 
   override fun onBind(intent: Intent): IBinder {
     serviceMessenger = Messenger(ServiceHandler(this))
@@ -82,8 +92,6 @@ class BackgroundLocationService : Service() {
 
   inner class ServiceHandler(service: BackgroundLocationService) : Handler(Looper.getMainLooper()) {
 
-    // var toChannel = toChannelForeground
-
     override fun handleMessage(msg: Message) {
       when (msg.what) {
         messageInformToDartBackground -> {
@@ -93,7 +101,6 @@ class BackgroundLocationService : Service() {
         else -> super.handleMessage(msg)
       }
     }
-
   }
 
   override fun onCreate() {
@@ -124,29 +131,17 @@ class BackgroundLocationService : Service() {
       }
     }
 
-    if (flutterEngine == null) {
-      // FlutterEngineを初期化
-      flutterEngine = FlutterEngine(this)
-
-      // Dartエントリポイントを指定して実行
-      val flutterLoader = FlutterLoader()
-      flutterLoader.startInitialization(serviceContext)
-      flutterLoader.ensureInitializationComplete(serviceContext, arrayOf())
-      val path = flutterLoader.findAppBundlePath()
-      val dartEntrypoint = DartExecutor.DartEntrypoint(path, DART_ENTRYPOINT_FUNCTION_NAME)
-      flutterEngine?.dartExecutor?.executeDartEntrypoint(dartEntrypoint)
-      toDartChannelBackground = MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, toDartChannelNameBackground)
-    }
+    startHeadlessFultterEngine()
 
     super.onStartCommand(intent, flags, startId)
     return START_STICKY
   }
 
   override fun onDestroy() {
-    flutterEngine?.destroy()
-    flutterEngine = null
-    super.onDestroy()
     println("BackgroundLocationService was destroyed!");
+    flutterEngineBackground?.destroy()
+    flutterEngineBackground = null
+    super.onDestroy()
   }
 
   override fun onUnbind(intent: Intent?): Boolean {
