@@ -66,7 +66,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final uLocationDriverPlugin = ULocationDriver();
   final MethodChannel toDartChannelForeground = MethodChannel("com.jimdo.uchida001tmhr.u_location_driver/toDartForeground");
-  String _messageFromIOS = "Waiting for message form Native ...";
+  String messageFromNative = "Waiting for message form Native ...";
   TextEditingController textEditingControllerFrom = TextEditingController();
   TextEditingController textEditingControllerPassword = TextEditingController();
   TextEditingController textEditingControllerTo = TextEditingController();
@@ -76,6 +76,7 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void initState() {
+    debugPrint("initState()");
     super.initState();
     SharedPreferences.getInstance().then((prefs) {
       this.prefs = prefs;
@@ -99,23 +100,30 @@ class _MyAppState extends State<MyApp> {
         debugPrint("onShow()");
       },
       onResume: () async {
-        debugPrint("onResume() -> activateForeground");
-        try {
-          await uLocationDriverPlugin.activateForeground();
-        } catch (_) {
+        debugPrint("onResume()");
+        var activateByUser = prefs.getBool("activatedByUser");
+        if (activateByUser != null && activateByUser) {
+          try {
+            debugPrint("onResume() -> $activateByUser -> activateForeground");
+            await uLocationDriverPlugin.activateForeground();
+          } catch (_) {
+          }
         }
       },
       onHide: () {
         debugPrint("onHide()");
       },
       onInactive: () async {
-        debugPrint("onInactive() -> activateBackground");
-        try {
-          final result = await uLocationDriverPlugin.activateBackground();
-          if (result == "success") {
-            SystemNavigator.pop();
-          }
-        } catch (_) {
+        debugPrint("onInactive()");
+        var activateByUser = prefs.getBool("activatedByUser");
+        if (activateByUser != null && activateByUser) {
+          try {
+            debugPrint("onInactive() -> $activateByUser -> activateBackground");
+            final result = await uLocationDriverPlugin.activateBackground();
+            if (result == "success") {
+              SystemNavigator.pop();
+            }
+          } catch (_) {}
         }
       },
       onPause: () {
@@ -147,7 +155,7 @@ class _MyAppState extends State<MyApp> {
     switch (call.method) {
       case 'informLocationToDartForeground':
         setState(() {
-          _messageFromIOS = 'Message from Native:\n${call.arguments}';
+          messageFromNative = 'Message from Native:\n${call.arguments}';
         });
         SendToHost sendToHost = SendToHost();
         sendToHost.send(call.arguments);
@@ -201,6 +209,7 @@ class _MyAppState extends State<MyApp> {
                 onPressed: (() {
                   uLocationDriverPlugin.activateForeground();
                   debugPrint("activateForeground");
+                  prefs.setBool("activatedByUser", true);
                 }),
                 child: Text("Activate"),
               ),
@@ -208,10 +217,11 @@ class _MyAppState extends State<MyApp> {
                 onPressed: (() {
                   uLocationDriverPlugin.inactivate();
                   debugPrint("inactivate");
+                  prefs.setBool("activatedByUser", false);
                 }),
                 child: Text("Inactivate"),
               ),
-              Text(_messageFromIOS),
+              Text(key: UniqueKey(), messageFromNative), // <- UniqueKey() must be used,
             ],
           ),
         ),

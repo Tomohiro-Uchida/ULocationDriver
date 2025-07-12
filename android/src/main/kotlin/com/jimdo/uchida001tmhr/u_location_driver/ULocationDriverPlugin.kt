@@ -13,6 +13,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.content.SharedPreferences
 import android.location.Location
 import android.os.Handler
 import android.os.IBinder
@@ -25,6 +26,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
+import androidx.datastore.preferences.core.Preferences
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -51,7 +53,11 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   private var flutterEngineMain: FlutterEngine? = null
   private lateinit var requestPermissionLauncherFineLocation: ActivityResultLauncher<String>
   private lateinit var requestPermissionLauncherBackgroundLocation: ActivityResultLauncher<String>
-  private lateinit var fusedLocationClient: FusedLocationProviderClient
+  private var fusedLocationClient: FusedLocationProviderClient? = null
+  private var prefs: SharedPreferences? = null
+  private final var PREFS_ACTIVATED_FOREFROUND = 1
+  private final var PREFS_ACTIVATED_BACKGTOUND = 2
+  private final var PREFS_INACTIVATED = 3
 
   companion object {
     private lateinit var thisActivity: Activity
@@ -116,7 +122,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
   }
 
-  fun restartMainFultterEngine() {
+  fun restartMainFlutterEngine() {
     if (flutterEngineMain == null) {
       // FlutterEngineを初期化
       flutterEngineMain = FlutterEngine(thisContext)
@@ -132,7 +138,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    println("onAttachedToEngine()")
+    println("onAttachedToEngine() - 1")
     fromDartChannel =
       MethodChannel(flutterPluginBinding.binaryMessenger, "com.jimdo.uchida001tmhr.u_location_driver/fromDart")
     fromDartChannel.setMethodCallHandler(this)
@@ -140,6 +146,14 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       toDartChannelForeground = MethodChannel(flutterPluginBinding.binaryMessenger, toDartChannelNameForeground)
     }
     thisContext = flutterPluginBinding.applicationContext
+    if (bound && prefs != null && prefs!!.getInt("activation", PREFS_INACTIVATED) != PREFS_INACTIVATED) {
+      println("onAttachedToEngine() - 2")
+      val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
+      thisContext.unbindService(connection)
+      thisContext.stopService(intentLocation)
+      println("onAttachedToEngine() - 3 -> restartMainFlutterEngine()")
+      restartMainFlutterEngine()
+    }
   }
 
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
@@ -147,6 +161,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     myPackageName = binding.activity.intent.getComponent()?.getPackageName()
     println("onAttachedToActivity() - 2")
     thisActivity = binding.activity
+    prefs = thisContext.getSharedPreferences("NativePreferencesAndroid", Context.MODE_PRIVATE)
     println("onAttachedToActivity() - 3")
     activityMessenger = Messenger(ActivityHandler(thisActivity))
     println("onAttachedToActivity() - 4")
@@ -173,17 +188,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       }
     }
 
-    println("onAttachedToActivity() - 5")
-    val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
-    if (bound) {
-      println("onAttachedToActivity() - 6")
-      thisContext.unbindService(connection)
-    }
-    println("onAttachedToActivity() - 6")
-    thisContext.stopService(intentLocation)
-    println("onAttachedToActivity() - 7 -> restartMainFultterEngine()")
-    restartMainFultterEngine()
-
     requestPermissionLauncherFineLocation =
       (thisActivity as ComponentActivity).registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) {
@@ -196,6 +200,15 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       }
   }
 
+  override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+    println("onDetachedFromEngine()")
+    fromDartChannel.setMethodCallHandler(null)
+  }
+
+  override fun onDetachedFromActivity() {
+    println("onDetachedFromActivity()")
+  }
+
   override fun onDetachedFromActivityForConfigChanges() {
     println("onDetachedFromActivityForConfigChanges()")
   }
@@ -204,24 +217,24 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     println("onReattachedToActivityForConfigChanges()")
   }
 
-  override fun onDetachedFromActivity() {
-    println("onDetachedFromActivity()")
-  }
-
-
   override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
     println("onMethodCall()")
     val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
+    val editor = prefs?.edit()
     when (call.method) {
       "activateForeground" -> {
-        val _error = if (serviceComponentName == null) {
-          false
+        editor?.putInt("activation", PREFS_ACTIVATED_FOREFROUND)?.commit()
+        val _error: Boolean
+        if (serviceComponentName == null) {
+          _error = false
         } else {
           serviceComponentName = null
           if (bound) {
             thisContext.unbindService(connection)
+            _error = thisContext.stopService(intentLocation)
+          } else {
+            _error = false
           }
-          thisContext.stopService(intentLocation)
         }
         getLocationPermissionLocation()
         if (_error) {
@@ -232,6 +245,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       }
 
       "activateBackground" -> {
+        editor?.putInt("activation", PREFS_ACTIVATED_BACKGTOUND)?.commit()
         toDartChannelForeground = null
         serviceComponentName = thisContext.startForegroundService(intentLocation)
         val _success = thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
@@ -244,14 +258,18 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       }
 
       "inactivate" -> {
-        val _error = if (serviceComponentName == null) {
-          false
+        editor?.putInt("activation", PREFS_INACTIVATED)?.commit()
+        val _error: Boolean
+        if (serviceComponentName == null) {
+          _error = false
         } else {
           serviceComponentName = null
           if (bound) {
             thisContext.unbindService(connection)
+            _error = thisContext.stopService(intentLocation)
+          } else {
+            _error = false
           }
-          thisContext.stopService(intentLocation)
         }
         stopLocationUpdates()
         if (_error) {
@@ -266,9 +284,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
   }
 
-  override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-    fromDartChannel.setMethodCallHandler(null)
-  }
 
   internal class ActivityHandler(activity: Activity) : Handler(Looper.getMainLooper()) {
 
@@ -319,7 +334,8 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       Manifest.permission.ACCESS_BACKGROUND_LOCATION
     )
     if (permissionFineLocation == PackageManager.PERMISSION_GRANTED &&
-      permissionBackgroundLocation == PackageManager.PERMISSION_GRANTED
+      permissionBackgroundLocation == PackageManager.PERMISSION_GRANTED &&
+      fusedLocationClient == null
     ) {
       fusedLocationClient = LocationServices.getFusedLocationProviderClient(thisActivity)
       startLocationUpdates()
@@ -328,18 +344,18 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
   @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
   private fun startLocationUpdates() {
-    if (::fusedLocationClient.isInitialized) {
+    if (fusedLocationClient != null && prefs != null && prefs!!.getInt("activation", PREFS_INACTIVATED)) {
       val _processInfo = getProcessInfo()
       if (_processInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND ||
         _processInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
       ) {
-        fusedLocationClient.requestLocationUpdates(
+        fusedLocationClient?.requestLocationUpdates(
           LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 10 * 1000 /*10秒*/)
             .setMinUpdateIntervalMillis(5 * 1000 /*5秒*/)
             .build(), locationCallback, Looper.getMainLooper()
         )
       } else {
-        fusedLocationClient.requestLocationUpdates(
+        fusedLocationClient?.requestLocationUpdates(
           LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 30 * 1000 /*30秒*/)
             .setMinUpdateIntervalMillis(10 * 1000 /*10秒*/)
             .build(), locationCallback, Looper.getMainLooper()
@@ -349,7 +365,8 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   private fun stopLocationUpdates() {
-    fusedLocationClient.removeLocationUpdates(locationCallback)
+    fusedLocationClient?.removeLocationUpdates(locationCallback)
+    fusedLocationClient = null
   }
 
 }
