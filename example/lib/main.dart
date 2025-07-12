@@ -7,7 +7,7 @@ import 'package:u_location_driver/u_location_driver.dart';
 import 'package:u_location_driver_example/send_to_host.dart';
 
 // Nativeからのメソッド呼び出しを処理する関数
-Future<void> handleMethodCall(MethodCall call) async {
+Future<void> handleMethodCallBackground(MethodCall call) async {
   switch (call.method) {
     case 'informLocationToDartForeground':
       break;
@@ -43,7 +43,7 @@ void backgroundMain() {
   final MethodChannel toDartChannelBackground = MethodChannel(
       "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground");
 
-  toDartChannelBackground.setMethodCallHandler(handleMethodCall);
+  toDartChannelBackground.setMethodCallHandler(handleMethodCallBackground);
 
   debugPrint("Flutter background task finished!");
 
