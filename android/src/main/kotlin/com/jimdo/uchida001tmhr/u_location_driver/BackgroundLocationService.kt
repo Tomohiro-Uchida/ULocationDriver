@@ -46,7 +46,6 @@ class BackgroundLocationService : Service() {
   companion object {
     // Dartエントリポイントの名前 (main() ではないので注意)
     // lib/main.dart に backgroundMain 関数が定義されていると仮定
-    val DART_ENTRYPOINT_PATH_NAME = "background_main.dart"
     val DART_ENTRYPOINT_FUNCTION_NAME = "backgroundMain"
     private var flutterEngine: FlutterEngine? = null
     var toDartChannelBackground: MethodChannel? = null
@@ -120,7 +119,7 @@ class BackgroundLocationService : Service() {
       )
     } catch (e: Exception) {
       if (e is ForegroundServiceStartNotAllowedException) {
-        print("ForegroundServiceStartNotAllowedException")
+        println("ForegroundServiceStartNotAllowedException")
       }
     }
 
@@ -130,8 +129,6 @@ class BackgroundLocationService : Service() {
 
       // Dartエントリポイントを指定して実行
       val path = FlutterInjector.instance().flutterLoader().findAppBundlePath()
-      // val path = DART_ENTRYPOINT_PATH_NAME
-      // val path = FlutterLoader().findAppBundlePath()
       val dartEntrypoint = DartExecutor.DartEntrypoint(path, DART_ENTRYPOINT_FUNCTION_NAME)
       flutterEngine?.dartExecutor?.executeDartEntrypoint(dartEntrypoint)
       toDartChannelBackground = MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, toDartChannelNameBackground)
@@ -145,7 +142,7 @@ class BackgroundLocationService : Service() {
     flutterEngine?.destroy()
     flutterEngine = null
     super.onDestroy()
-    print("BackgroundLocationService was destroyed!");
+    println("BackgroundLocationService was destroyed!");
   }
 
   override fun onUnbind(intent: Intent?): Boolean {

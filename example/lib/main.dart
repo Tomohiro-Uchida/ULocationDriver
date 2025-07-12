@@ -51,6 +51,7 @@ void backgroundMain() {
 
 @pragma('vm:entry-point') // JIT/AOTコンパイラにエントリポイントであることを知らせる
 void main() {
+  debugPrint("main()");
   runApp(const MyApp());
 }
 
@@ -75,7 +76,6 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    toDartChannelForeground.setMethodCallHandler(handleMethodCall);
     SharedPreferences.getInstance().then((prefs) {
       this.prefs = prefs;
       String? username = prefs.getString("fromAddress");
@@ -127,6 +127,10 @@ class _MyAppState extends State<MyApp> {
         debugPrint("onRestart()");
       },
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      debugPrint("addPostFrameCallback() -> setMethodCallHandler()");
+      toDartChannelForeground.setMethodCallHandler(handleMethodCall);
+    });
   }
 
   @override
@@ -136,7 +140,6 @@ class _MyAppState extends State<MyApp> {
     appLifecycleListener.dispose();
     super.dispose();
   }
-
 
   // Nativeからのメソッド呼び出しを処理する関数
   Future<void> handleMethodCall(MethodCall call) async {
@@ -159,6 +162,7 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint("main() -> build()");
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(title: const Text("uLocationDriverPlugin")),
