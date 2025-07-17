@@ -135,7 +135,7 @@ class BackgroundLocationService : Service() {
           println("BackgroundLocationService: messageSendForeground")
           if (msg.obj != null) {
             callbackHandler = msg.obj as Long
-            // startBackgroundIsolate(callbackHandler)
+            startBackgroundIsolate(callbackHandler)
           }
           sendToDart = sendToForeground
         }
