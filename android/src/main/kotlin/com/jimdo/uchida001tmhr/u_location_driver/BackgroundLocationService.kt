@@ -46,13 +46,17 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 
+object MyPluginEngineRegistry {
+  var externalEngine: FlutterEngine? = null
+}
+
 class BackgroundLocationService : Service() {
   val serviceContext = this
   val sendNone = 1000
   val sendToForeground = 2000
   val sendToBackground = 3000
   var sendToDart = sendNone
-  lateinit var flutterEngineBackground: FlutterEngine
+  var flutterEngineBackground: FlutterEngine? = null
   var callbackHandler = 0L
 
   override fun onBind(intent: Intent): IBinder {
@@ -66,7 +70,7 @@ class BackgroundLocationService : Service() {
     flutterLoader.startInitialization(applicationContext)
     flutterLoader.ensureInitializationComplete(applicationContext, null)
 
-    flutterEngineBackground = FlutterEngine(applicationContext)
+    flutterEngineBackground = BackgroundEngineRegistry.backgroundEngine
 
     val callbackInfo = FlutterCallbackInformation.lookupCallbackInformation(callbackHandle)
 
@@ -76,11 +80,11 @@ class BackgroundLocationService : Service() {
       callbackInfo!!
     )
 
-    flutterEngineBackground.dartExecutor.executeDartCallback(dartCallback)
+    flutterEngineBackground?.dartExecutor.executeDartCallback(dartCallback)
 
     // Dart Isolate との通信チャネルを初期化
     toDartChannelToBackground = BasicMessageChannel(
-      flutterEngineBackground.dartExecutor.binaryMessenger,
+      flutterEngineBackground?.dartExecutor.binaryMessenger,
       toDartChannelNameBackground,
       StringCodec.INSTANCE
     )
@@ -184,7 +188,7 @@ class BackgroundLocationService : Service() {
 
   override fun onDestroy() {
     println("BackgroundLocationService: BackgroundLocationService was destroyed!");
-    flutterEngineBackground.destroy()
+    flutterEngineBackground?.destroy()
     toDartChannelToForeground = null
     toDartChannelToBackground = null
     super.onDestroy()

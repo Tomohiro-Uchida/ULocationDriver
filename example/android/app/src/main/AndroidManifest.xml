@@ -2,8 +2,9 @@
     xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:label="u_location_driver_example"
+        android:name=".MyApplication"
         android:icon="@mipmap/ic_launcher" >
-        <!-- android:name is modofied -->
+        <!-- android:name is addes -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
