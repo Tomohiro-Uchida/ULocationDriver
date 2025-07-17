@@ -22,10 +22,11 @@ import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Comp
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendForeground
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendInactivate
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.backgroundDartExecutor
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.eventSinkBackground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.eventSinkForeground
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelToBackground
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.eventSinkBackground
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelNameBackground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelToForeground
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelToBackground
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.loader.FlutterLoader
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -53,7 +54,6 @@ class BackgroundLocationService : Service() {
   var sendToDart = sendNone
   lateinit var flutterEngineBackground: FlutterEngine
   var callbackHandler = 0L
-  lateinit var messageChannelToBackgroundIsolate: BasicMessageChannel<String>
 
   override fun onBind(intent: Intent): IBinder {
     println("onBind()")
@@ -79,33 +79,22 @@ class BackgroundLocationService : Service() {
     flutterEngineBackground.dartExecutor.executeDartCallback(dartCallback)
 
     // Dart Isolate との通信チャネルを初期化
-    messageChannelToBackgroundIsolate = BasicMessageChannel(
+    toDartChannelToBackground = BasicMessageChannel(
       flutterEngineBackground.dartExecutor.binaryMessenger,
-      "com.jimdo.uchida001tmhr.u_location_driver/backgroundIsolate",
+      toDartChannelNameBackground,
       StringCodec.INSTANCE
     )
   }
+
 
   fun informLocationToDartForeground(location: Location?) {
     val locale = Locale.JAPAN
     val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
     val dateString = dateTimeFormatter.format(LocalDateTime.now())
     val message = "$dateString,${location?.latitude},${location?.longitude}"
-    Handler(Looper.getMainLooper()).post {
-      println("informLocationToDartForeground -> message = $message")
-      toDartChannelToForeground.invokeMethod("informToForeground", message, object : MethodChannel.Result {
-        override fun success(result: Any?) {
-          println("invokeMethod -> success")
-        }
-
-        override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
-          println("invokeMethod -> errorMessage == $errorMessage")
-        }
-
-        override fun notImplemented() {
-          println("invokeMethod -> notImplemented")
-        }
-      })
+    if (::toDartChannelToForeground.isInitialized) {
+      println("informLocationToDartBackground -> message = $message")
+      toDartChannelToForeground.send(message)
     }
   }
 
@@ -114,9 +103,9 @@ class BackgroundLocationService : Service() {
     val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
     val dateString = dateTimeFormatter.format(LocalDateTime.now())
     val message = "$dateString,${location?.latitude},${location?.longitude}"
-    if (::messageChannelToBackgroundIsolate.isInitialized) {
+    if (::toDartChannelToBackground.isInitialized) {
       println("informLocationToDartBackground -> message = $message")
-      messageChannelToBackgroundIsolate.send(message)
+      toDartChannelToBackground.send(message)
     }
   }
 

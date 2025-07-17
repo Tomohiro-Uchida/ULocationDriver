@@ -11,13 +11,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:u_location_driver/u_location_driver.dart';
 import 'package:u_location_driver_example/send_to_host.dart';
 
-final messageChannelFromBackgroundService = const BasicMessageChannel<String>(
+final toDartChannelBackground = const BasicMessageChannel<String>(
   'com.jimdo.uchida001tmhr.u_location_driver/backgroundIsolate',
   StringCodec(),
 );
 
-void listenForMessagesFromAndroid() {
-  messageChannelFromBackgroundService.setMessageHandler((message) async {
+void listenMessagesToDartBackground() {
+  toDartChannelBackground.setMessageHandler((message) async {
     if (message != null) {
       SendToHost sendToHost = SendToHost();
       sendToHost.send(message);
@@ -29,7 +29,7 @@ void listenForMessagesFromAndroid() {
 @pragma('vm:entry-point')
 void backgroundEntryPoint() {
   WidgetsFlutterBinding.ensureInitialized();
-  listenForMessagesFromAndroid();
+  listenMessagesToDartBackground();
 }
 
 @pragma('vm:entry-point') // JIT/AOTコンパイラにエントリポイントであることを知らせる
@@ -48,7 +48,10 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final uLocationDriverPlugin = ULocationDriver();
-  final MethodChannel toDartChannelForeground = MethodChannel("com.jimdo.uchida001tmhr.u_location_driver/toDartForeground");
+  final BasicMessageChannel toDartChannelForeground = BasicMessageChannel(
+    "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground",
+    StringCodec()
+  );
   String messageFromNative = "Waiting for message form Native ...";
   TextEditingController textEditingControllerFrom = TextEditingController();
   TextEditingController textEditingControllerPassword = TextEditingController();
@@ -57,6 +60,16 @@ class _MyAppState extends State<MyApp> {
   ReceivePort receivePort = ReceivePort();
 
   late final AppLifecycleListener appLifecycleListener;
+
+  void listenMessagesToDartForeground() {
+    toDartChannelForeground.setMessageHandler((message) async {
+      if (message != null) {
+        SendToHost sendToHost = SendToHost();
+        sendToHost.send(message);
+      }
+      return ("success");
+    });
+  }
 
   @override
   void initState() {
@@ -120,7 +133,7 @@ class _MyAppState extends State<MyApp> {
         debugPrint("onRestart()");
       },
     );
-    toDartChannelForeground.setMethodCallHandler(handleMethodCallForeground);
+    listenMessagesToDartForeground();
     WidgetsBinding.instance.addPostFrameCallback((_) {
     });
   }

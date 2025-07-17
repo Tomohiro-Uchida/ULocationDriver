@@ -48,6 +48,8 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.BinaryMessenger
+import io.flutter.plugin.common.BasicMessageChannel
+import io.flutter.plugin.common.StringCodec
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -81,7 +83,6 @@ class MessageFromPluginToService {
 }
 
 class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
-  private var flutterEngineMain: FlutterEngine? = null
   private lateinit var requestPermissionLauncherFineLocation: ActivityResultLauncher<String>
   private lateinit var requestPermissionLauncherBackgroundLocation: ActivityResultLauncher<String>
   private var fusedLocationClient: FusedLocationProviderClient? = null
@@ -110,8 +111,8 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     val fromDartChannelName = "com.jimdo.uchida001tmhr.u_location_driver/fromDart"
     val toDartChannelNameForeground = "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground"
     val toDartChannelNameBackground = "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground"
-    lateinit var toDartChannelToForeground: MethodChannel
-    lateinit var toDartChannelToBackground: MethodChannel
+    lateinit var toDartChannelToForeground: BasicMessageChannel<String>
+    lateinit var toDartChannelToBackground: BasicMessageChannel<String>
     var myPackageName: String? = ""
     var backgroundFlutterEngine: FlutterEngine? = null
     var backgroundDartExecutor: DartExecutor? = null
@@ -149,8 +150,11 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     fromDartChannel.setMethodCallHandler(this)
     thisContext = flutterPluginBinding.applicationContext
     val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
-    toDartChannelToForeground = MethodChannel(flutterPluginBinding.binaryMessenger, toDartChannelNameForeground)
-    toDartChannelToBackground = MethodChannel(flutterPluginBinding.binaryMessenger, toDartChannelNameBackground)
+    toDartChannelToForeground = BasicMessageChannel(
+      flutterPluginBinding.binaryMessenger,
+      toDartChannelNameForeground,
+      StringCodec.INSTANCE
+    )
     thisContext.startForegroundService(intentLocation)
     thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
   }
