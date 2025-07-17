@@ -74,7 +74,7 @@ class MessageFromPluginToService {
       val msg = Message.obtain(null, messageType, 0, 0)
       msg.replyTo = activityMessenger
       msg.obj = message
-      println("sendMessageToService() -> serviceMessenger = $serviceMessenger")
+      println("ULocationDriverPlugin: sendMessageToService()")
       serviceMessenger?.send(msg)
     } catch (e: RemoteException) {
       e.printStackTrace()
@@ -93,12 +93,12 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   private val connection = object : ServiceConnection {
     override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
       serviceMessenger = Messenger(binder)
-      println("onServiceConnected() -> serviceMessenger = $serviceMessenger")
+      println("ULocationDriverPlugin: onServiceConnected() -> serviceMessenger = $serviceMessenger")
       bound = true
     }
 
     override fun onServiceDisconnected(name: ComponentName?) {
-      println("onServiceDisconnected()")
+      println("ULocationDriverPlugin: onServiceDisconnected()")
       serviceMessenger = null
       bound = false
     }
@@ -111,8 +111,8 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     val fromDartChannelName = "com.jimdo.uchida001tmhr.u_location_driver/fromDart"
     val toDartChannelNameForeground = "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground"
     val toDartChannelNameBackground = "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground"
-    lateinit var toDartChannelToForeground: BasicMessageChannel<String>
-    lateinit var toDartChannelToBackground: BasicMessageChannel<String>
+    var toDartChannelToForeground: BasicMessageChannel<String>? = null
+    var toDartChannelToBackground: BasicMessageChannel<String>? = null
     var myPackageName: String? = ""
     var backgroundFlutterEngine: FlutterEngine? = null
     var backgroundDartExecutor: DartExecutor? = null
@@ -145,7 +145,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    println("onAttachedToEngine() - 1")
+    println("ULocationDriverPlugin: onAttachedToEngine() - 1")
     fromDartChannel = MethodChannel(flutterPluginBinding.binaryMessenger, fromDartChannelName)
     fromDartChannel.setMethodCallHandler(this)
     thisContext = flutterPluginBinding.applicationContext
@@ -160,18 +160,18 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
-    println("onAttachedToActivity() - 1")
+    println("ULocationDriverPlugin: onAttachedToActivity() - 1")
     myPackageName = binding.activity.intent.getComponent()?.getPackageName()
-    println("onAttachedToActivity() - 2")
+    println("ULocationDriverPlugin: onAttachedToActivity() - 2")
     thisActivity = binding.activity
-    println("onAttachedToActivity() - 3")
+    println("ULocationDriverPlugin: onAttachedToActivity() - 3")
     activityMessenger = Messenger(ActivityHandler(thisActivity))
-    println("onAttachedToActivity() - 4")
+    println("ULocationDriverPlugin: onAttachedToActivity() - 4")
     locationCallback = object : LocationCallback() {
       override fun onLocationResult(locationResult: LocationResult) {
         Handler(Looper.getMainLooper()).post {
           // ここにUIスレッドで実行したいコードを書く
-          println("onLocationResult()")
+          println("ULocationDriverPlugin: onLocationResult()")
           val messageFromPluginToService = MessageFromPluginToService()
           messageFromPluginToService.messageType = MessageFromPluginToService.messageLocation
           messageFromPluginToService.message = locationResult.lastLocation!!
@@ -193,23 +193,23 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-    println("onDetachedFromEngine()")
+    println("ULocationDriverPlugin: onDetachedFromEngine()")
   }
 
   override fun onDetachedFromActivity() {
-    println("onDetachedFromActivity()")
+    println("ULocationDriverPlugin: onDetachedFromActivity()")
   }
 
   override fun onDetachedFromActivityForConfigChanges() {
-    println("onDetachedFromActivityForConfigChanges()")
+    println("ULocationDriverPlugin: onDetachedFromActivityForConfigChanges()")
   }
 
   override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
-    println("onReattachedToActivityForConfigChanges()")
+    println("ULocationDriverPlugin: onReattachedToActivityForConfigChanges()")
   }
 
   override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-    println("onMethodCall() -> ${call.method}")
+    println("ULocationDriverPlugin: onMethodCall() -> ${call.method}")
     val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
     when (call.method) {
       "activateForeground" -> {

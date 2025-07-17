@@ -64,6 +64,9 @@ class _MyAppState extends State<MyApp> {
   void listenMessagesToDartForeground() {
     toDartChannelForeground.setMessageHandler((message) async {
       if (message != null) {
+        setState(() {
+          messageFromNative = message;
+        });
         SendToHost sendToHost = SendToHost();
         sendToHost.send(message);
       }

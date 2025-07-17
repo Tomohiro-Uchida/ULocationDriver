@@ -56,7 +56,7 @@ class BackgroundLocationService : Service() {
   var callbackHandler = 0L
 
   override fun onBind(intent: Intent): IBinder {
-    println("onBind()")
+    println("BackgroundLocationService: onBind()")
     val serviceMessenger = Messenger(ServiceHandler(this))
     return serviceMessenger!!.binder
   }
@@ -86,15 +86,16 @@ class BackgroundLocationService : Service() {
     )
   }
 
-
   fun informLocationToDartForeground(location: Location?) {
     val locale = Locale.JAPAN
     val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
     val dateString = dateTimeFormatter.format(LocalDateTime.now())
     val message = "$dateString,${location?.latitude},${location?.longitude}"
-    if (::toDartChannelToForeground.isInitialized) {
-      println("informLocationToDartBackground -> message = $message")
-      toDartChannelToForeground.send(message)
+    if (toDartChannelToForeground != null) {
+      println("BackgroundLocationService: Sending via toDartChannelToForeground")
+      toDartChannelToForeground?.send(message) { reply: String? ->
+        println("BackgroundLocationService: Sent via toDartChannelToForeground -> $reply")
+      }
     }
   }
 
@@ -103,9 +104,11 @@ class BackgroundLocationService : Service() {
     val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
     val dateString = dateTimeFormatter.format(LocalDateTime.now())
     val message = "$dateString,${location?.latitude},${location?.longitude}"
-    if (::toDartChannelToBackground.isInitialized) {
-      println("informLocationToDartBackground -> message = $message")
-      toDartChannelToBackground.send(message)
+    if (toDartChannelToBackground != null) {
+      println("BackgroundLocationService: Sending via toDartChannelToBackground")
+      toDartChannelToBackground?.send(message) { reply: String? ->
+        println("BackgroundLocationService: Sent via toDartChannelToBackground -> $reply")
+      }
     }
   }
 
@@ -114,23 +117,22 @@ class BackgroundLocationService : Service() {
     override fun handleMessage(msg: Message) {
       when (msg.what) {
         messageLocation -> {
-          println("messageLocation -> $sendToDart")
           when(sendToDart) {
             sendToForeground -> {
-              println("messageLocation -> sendToForeground")
+              println("BackgroundLocationService: messageLocation -> sendToForeground")
               informLocationToDartForeground(msg.obj as Location?)
             }
             sendToBackground -> {
-              println("messageLocation -> sendToBackground")
+              println("BackgroundLocationService: messageLocation -> sendToBackground")
               informLocationToDartBackground(msg.obj as Location?)
             }
             else -> {
-              println("messageLocation -> else")
+              println("BackgroundLocationService: messageLocation -> else")
             }
           }
         }
         messageSendForeground -> {
-          println("messageSendForeground")
+          println("BackgroundLocationService: messageSendForeground")
           if (msg.obj != null) {
             callbackHandler = msg.obj as Long
             // startBackgroundIsolate(callbackHandler)
@@ -138,11 +140,11 @@ class BackgroundLocationService : Service() {
           sendToDart = sendToForeground
         }
         messageSendBackground -> {
-          println("messageSendBackground")
+          println("BackgroundLocationService: messageSendBackground")
           sendToDart = sendToBackground
         }
         messageSendInactivate -> {
-          println("messageSendInactivate")
+          println("BackgroundLocationService: messageSendInactivate")
           (this@BackgroundLocationService).stopSelf()
         }
       }
@@ -173,7 +175,7 @@ class BackgroundLocationService : Service() {
       )
     } catch (e: Exception) {
       if (e is ForegroundServiceStartNotAllowedException) {
-        println("ForegroundServiceStartNotAllowedException")
+        println("BackgroundLocationService: ForegroundServiceStartNotAllowedException")
       }
     }
     super.onStartCommand(intent, flags, startId)
@@ -181,8 +183,10 @@ class BackgroundLocationService : Service() {
   }
 
   override fun onDestroy() {
-    println("BackgroundLocationService was destroyed!");
-    flutterEngineBackground?.destroy()
+    println("BackgroundLocationService: BackgroundLocationService was destroyed!");
+    flutterEngineBackground.destroy()
+    toDartChannelToForeground = null
+    toDartChannelToBackground = null
     super.onDestroy()
   }
 
