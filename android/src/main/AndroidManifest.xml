@@ -16,7 +16,8 @@
             android:name=".BackgroundLocationService"
             android:enabled="true"
             android:exported="true"
-            android:foregroundServiceType="location"/>
+            android:foregroundServiceType="location"
+            android:stopWithTask="false" />
 
         <!--
          Don't delete the meta-data below.

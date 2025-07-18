@@ -21,7 +21,7 @@ class MyApplication : Application() {
   }
 
   fun getOrCreateEngine(context: Context): FlutterEngine? {
-    if (backgroundEngine != null) {
+    if (backgroundEngine == null) {
       backgroundEngine = FlutterEngine(context)
       GeneratedPluginRegistrant.registerWith(backgroundEngine!!)
     }

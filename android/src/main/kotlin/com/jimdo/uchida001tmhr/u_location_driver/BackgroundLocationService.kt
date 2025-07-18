@@ -15,6 +15,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Message
 import android.os.Messenger
+import androidx.compose.ui.window.application
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat.startForeground
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageLocation
@@ -46,10 +47,6 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 
-object MyPluginEngineRegistry {
-  var externalEngine: FlutterEngine? = null
-}
-
 class BackgroundLocationService : Service() {
   val serviceContext = this
   val sendNone = 1000
@@ -70,7 +67,7 @@ class BackgroundLocationService : Service() {
     flutterLoader.startInitialization(applicationContext)
     flutterLoader.ensureInitializationComplete(applicationContext, null)
 
-    flutterEngineBackground = BackgroundEngineRegistry.backgroundEngine
+    flutterEngineBackground = (application as MyApplication).getOrCreateEngine(applicationContext)
 
     val callbackInfo = FlutterCallbackInformation.lookupCallbackInformation(callbackHandle)
 

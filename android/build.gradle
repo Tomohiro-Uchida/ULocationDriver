@@ -68,6 +68,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation 'androidx.datastore:datastore-preferences-core-android:1.1.7'
+    implementation 'androidx.compose.ui:ui-desktop:1.7.0'
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.mockito:mockito-core:5.18.0")
 }
