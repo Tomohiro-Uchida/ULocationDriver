@@ -106,8 +106,8 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   // バックグラウンドエンジンの DartExecutor を保持
 
   companion object {
-    private lateinit var thisActivity: Activity
-    private lateinit var thisContext: Context
+    lateinit var thisActivity: Activity
+    lateinit var thisContext: Context
     val fromDartChannelName = "com.jimdo.uchida001tmhr.u_location_driver/fromDart"
     val toDartChannelNameForeground = "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground"
     val toDartChannelNameBackground = "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground"
@@ -145,18 +145,21 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    println("ULocationDriverPlugin: onAttachedToEngine() - 1")
+    println("ULocationDriverPlugin: onAttachedToEngine() - ${flutterPluginBinding.binaryMessenger}")
     fromDartChannel = MethodChannel(flutterPluginBinding.binaryMessenger, fromDartChannelName)
     fromDartChannel.setMethodCallHandler(this)
     thisContext = flutterPluginBinding.applicationContext
-    val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
-    toDartChannelToForeground = BasicMessageChannel(
-      flutterPluginBinding.binaryMessenger,
-      toDartChannelNameForeground,
-      StringCodec.INSTANCE
-    )
-    thisContext.startForegroundService(intentLocation)
-    thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
+    if (toDartChannelToForeground == null) { // Foreground Channel
+      toDartChannelToForeground = BasicMessageChannel(
+        flutterPluginBinding.binaryMessenger,
+        toDartChannelNameForeground,
+        StringCodec.INSTANCE
+      )
+      val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
+      thisContext.startForegroundService(intentLocation)
+      thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
+      attachCount++
+    }
   }
 
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
@@ -194,6 +197,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
     println("ULocationDriverPlugin: onDetachedFromEngine()")
+    toDartChannelToForeground = null
   }
 
   override fun onDetachedFromActivity() {
