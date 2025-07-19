@@ -3,6 +3,7 @@ package com.jimdo.uchida001tmhr.u_location_driver
 import android.app.ActivityManager
 import android.content.pm.ApplicationInfo
 import android.os.Build
+import android.os.Bundle
 import android.os.Process
 import android.Manifest
 import android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
@@ -73,7 +74,16 @@ class MessageFromPluginToService {
     try {
       val msg = Message.obtain(null, messageType, 0, 0)
       msg.replyTo = activityMessenger
-      msg.obj = message
+      val bundle = Bundle()
+      when (messageType) {
+        messageLocation -> {
+          bundle.putParcelable("location", message as Location?)
+        }
+        messageSendForeground -> {
+          bundle.putLong("callbackHandle", message as Long)
+        }
+      }
+      msg.data = bundle
       println("ULocationDriverPlugin: sendMessageToService()")
       serviceMessenger?.send(msg)
     } catch (e: RemoteException) {

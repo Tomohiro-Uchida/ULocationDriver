@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.pm.ServiceInfo
 import android.location.Location
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -71,18 +72,6 @@ class BackgroundLocationService : Service() {
 
     flutterEngineBackground = FlutterEngine(applicationContext)
 
-    /*
-    val callbackInfo = FlutterCallbackInformation.lookupCallbackInformation(callbackHandle)
-
-    val dartCallback = DartExecutor.DartCallback(
-      assets,
-      flutterLoader.findAppBundlePath(),
-      callbackInfo!!
-    )
-
-    flutterEngineBackground?.dartExecutor?.executeDartCallback(dartCallback)
-     */
-
     val dartEntrypoint = DartExecutor.DartEntrypoint(
       flutterLoader.findAppBundlePath(),
       "backgroundEntryPoint"
@@ -132,11 +121,13 @@ class BackgroundLocationService : Service() {
           when(sendToDart) {
             sendToForeground -> {
               println("BackgroundLocationService: messageLocation -> sendToForeground")
-              informLocationToDartForeground(msg.obj as Location?)
+              val bundle: Bundle = msg.data
+              informLocationToDartForeground(bundle.getParcelable("location", Location::class.java))
             }
             sendToBackground -> {
               println("BackgroundLocationService: messageLocation -> sendToBackground")
-              informLocationToDartBackground(msg.obj as Location?)
+              val bundle: Bundle = msg.data
+              informLocationToDartBackground(bundle.getParcelable("location", Location::class.java))
             }
             else -> {
               println("BackgroundLocationService: messageLocation -> else")
@@ -145,8 +136,9 @@ class BackgroundLocationService : Service() {
         }
         messageSendForeground -> {
           println("BackgroundLocationService: messageSendForeground")
-          if (msg.obj != null) {
-            callbackHandler = msg.obj as Long
+          if (msg.data != null) {
+            val bundle: Bundle = msg.data
+            callbackHandler = bundle.getLong("callbackHandle", 0L)
             startBackgroundIsolate(callbackHandler)
           }
           sendToDart = sendToForeground
