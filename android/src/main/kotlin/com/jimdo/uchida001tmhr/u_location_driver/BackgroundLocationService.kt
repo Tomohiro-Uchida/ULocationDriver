@@ -70,8 +70,8 @@ class BackgroundLocationService : Service() {
     flutterLoader.ensureInitializationComplete(applicationContext, null)
 
     flutterEngineBackground = FlutterEngine(applicationContext)
-    println("startBackgroundIsolate: ${flutterEngineBackground!!.dartExecutor!!.binaryMessenger}")
 
+    /*
     val callbackInfo = FlutterCallbackInformation.lookupCallbackInformation(callbackHandle)
 
     val dartCallback = DartExecutor.DartCallback(
@@ -81,8 +81,17 @@ class BackgroundLocationService : Service() {
     )
 
     flutterEngineBackground?.dartExecutor?.executeDartCallback(dartCallback)
+     */
+
+    val dartEntrypoint = DartExecutor.DartEntrypoint(
+      flutterLoader.findAppBundlePath(),
+      "backgroundEntryPoint"
+    )
+
+    flutterEngineBackground?.dartExecutor?.executeDartEntrypoint(dartEntrypoint)
 
     // Dart Isolate との通信チャネルを初期化
+    println("startBackgroundIsolate: flutterEngineBackground.dartExecutor.binaryMessenger = ${flutterEngineBackground!!.dartExecutor!!.binaryMessenger}")
     toDartChannelToBackground = BasicMessageChannel(
       flutterEngineBackground!!.dartExecutor.binaryMessenger,
       toDartChannelNameBackground,

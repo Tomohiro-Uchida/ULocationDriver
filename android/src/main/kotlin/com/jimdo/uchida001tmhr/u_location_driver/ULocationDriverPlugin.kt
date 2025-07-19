@@ -111,6 +111,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     val fromDartChannelName = "com.jimdo.uchida001tmhr.u_location_driver/fromDart"
     val toDartChannelNameForeground = "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground"
     val toDartChannelNameBackground = "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground"
+    var attachCount = 0
     var toDartChannelToForeground: BasicMessageChannel<String>? = null
     var toDartChannelToBackground: BasicMessageChannel<String>? = null
     var myPackageName: String? = ""
@@ -158,7 +159,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
       thisContext.startForegroundService(intentLocation)
       thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
-      attachCount++
     }
   }
 

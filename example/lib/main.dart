@@ -12,12 +12,12 @@ import 'package:u_location_driver/u_location_driver.dart';
 import 'package:u_location_driver_example/send_to_host.dart';
 
 final toDartChannelBackground = const BasicMessageChannel<String>(
-  'com.jimdo.uchida001tmhr.u_location_driver/backgroundIsolate',
+  "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground",
   StringCodec(),
 );
 
 void listenMessagesToDartBackground() {
-  debugPrint("Dart: listenMessagesToDartBackground()");
+  debugPrint("Dart: listenMessagesToDartBackground() - toDartChannelBackground.binaryMessenger = ${toDartChannelBackground.binaryMessenger}");
   toDartChannelBackground.setMessageHandler((message) async {
     if (message != null) {
       SendToHost sendToHost = SendToHost();
