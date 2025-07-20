@@ -1,10 +1,7 @@
 package com.jimdo.uchida001tmhr.u_location_driver
 
 import android.app.ActivityManager
-import android.content.pm.ApplicationInfo
-import android.os.Build
 import android.os.Bundle
-import android.os.Process
 import android.Manifest
 import android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
 import android.Manifest.permission.ACCESS_FINE_LOCATION
@@ -14,7 +11,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
-import android.content.SharedPreferences
 import android.location.Location
 import android.os.Handler
 import android.os.IBinder
@@ -36,25 +32,18 @@ import com.google.android.gms.location.Priority
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageServiceToPlugin
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.activityMessenger
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.serviceMessenger
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.serviceBound
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.embedding.engine.FlutterEngineGroup
-import io.flutter.embedding.engine.loader.FlutterLoader
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.embedding.engine.dart.DartExecutor
-import io.flutter.embedding.engine.dart.DartExecutor.DartEntrypoint
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.EventChannel
-import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.BasicMessageChannel
 import io.flutter.plugin.common.StringCodec
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import java.util.Locale
 
 class MessageFromPluginToService {
   var messageType = messageLocation
@@ -72,24 +61,27 @@ class MessageFromPluginToService {
 
   fun sendMessageToService() {
     try {
-      val msg = Message.obtain(null, messageType, 0, 0)
-      msg.replyTo = activityMessenger
-      val bundle = Bundle()
-      when (messageType) {
-        messageLocation -> {
-          if (message != null) {
-            bundle.putParcelable("location", message as Location)
+      if (serviceBound) {
+        val msg = Message.obtain(null, messageType, 0, 0)
+        msg.replyTo = activityMessenger
+        val bundle = Bundle()
+        when (messageType) {
+          messageLocation -> {
+            if (message != null) {
+              bundle.putParcelable("location", message as Location)
+            }
+          }
+
+          messageSendForeground -> {
+            if (message != null) {
+              bundle.putLong("callbackHandle", message as Long)
+            }
           }
         }
-        messageSendForeground -> {
-          if (message != null) {
-            bundle.putLong("callbackHandle", message as Long)
-          }
-        }
+        msg.data = bundle
+        println("ULocationDriverPlugin: sendMessageToService()")
+        serviceMessenger?.send(msg)
       }
-      msg.data = bundle
-      println("ULocationDriverPlugin: sendMessageToService()")
-      serviceMessenger?.send(msg)
     } catch (e: RemoteException) {
       e.printStackTrace()
     }
@@ -101,20 +93,30 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   private lateinit var requestPermissionLauncherBackgroundLocation: ActivityResultLauncher<String>
   private var fusedLocationClient: FusedLocationProviderClient? = null
   private lateinit var fromDartChannel: MethodChannel
-  private lateinit var locationCallback: LocationCallback
+  val locationCallback: LocationCallback = object : LocationCallback() {
+    override fun onLocationResult(locationResult: LocationResult) {
+      Handler(Looper.getMainLooper()).post {
+        // ここにUIスレッドで実行したいコードを書く
+        println("ULocationDriverPlugin: onLocationResult()")
+        val messageFromPluginToService = MessageFromPluginToService()
+        messageFromPluginToService.messageType = MessageFromPluginToService.messageLocation
+        messageFromPluginToService.message = locationResult.lastLocation!!
+        messageFromPluginToService.sendMessageToService()
+      }
+    }
+  }
   private var serviceComponentName: ComponentName? = null
-  private var bound = false
   private val connection = object : ServiceConnection {
     override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
       serviceMessenger = Messenger(binder)
       println("ULocationDriverPlugin: onServiceConnected() -> serviceMessenger = $serviceMessenger")
-      bound = true
+      serviceBound = true
     }
 
     override fun onServiceDisconnected(name: ComponentName?) {
       println("ULocationDriverPlugin: onServiceDisconnected()")
       serviceMessenger = null
-      bound = false
+      serviceBound = false
     }
   }
   // バックグラウンドエンジンの DartExecutor を保持
@@ -122,6 +124,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   companion object {
     lateinit var thisActivity: Activity
     lateinit var thisContext: Context
+    var serviceBound = false
     val fromDartChannelName = "com.jimdo.uchida001tmhr.u_location_driver/fromDart"
     val toDartChannelNameForeground = "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground"
     val toDartChannelNameBackground = "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground"
@@ -171,6 +174,10 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         StringCodec.INSTANCE
       )
       val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
+      intentLocation.setClassName(
+        thisContext.packageName,
+        "com.jimdo.uchida001tmhr.u_location_driver.BackgroundLocationService"
+      )
       thisContext.startForegroundService(intentLocation)
       thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
     }
@@ -184,18 +191,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     println("ULocationDriverPlugin: onAttachedToActivity() - 3")
     activityMessenger = Messenger(ActivityHandler(thisActivity))
     println("ULocationDriverPlugin: onAttachedToActivity() - 4")
-    locationCallback = object : LocationCallback() {
-      override fun onLocationResult(locationResult: LocationResult) {
-        Handler(Looper.getMainLooper()).post {
-          // ここにUIスレッドで実行したいコードを書く
-          println("ULocationDriverPlugin: onLocationResult()")
-          val messageFromPluginToService = MessageFromPluginToService()
-          messageFromPluginToService.messageType = MessageFromPluginToService.messageLocation
-          messageFromPluginToService.message = locationResult.lastLocation!!
-          messageFromPluginToService.sendMessageToService()
-        }
-      }
-    }
 
     requestPermissionLauncherFineLocation =
       (thisActivity as ComponentActivity).registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -331,7 +326,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
   }
 
-  private fun stopLocationUpdates() {
+  fun stopLocationUpdates() {
     fusedLocationClient?.removeLocationUpdates(locationCallback)
     fusedLocationClient = null
   }

@@ -11,27 +11,34 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:u_location_driver/u_location_driver.dart';
 import 'package:u_location_driver_example/send_to_host.dart';
 
-final toDartChannelBackground = const BasicMessageChannel<String>(
-  "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground",
-  StringCodec(),
-);
+@pragma('vm:entry-point')
+void backgroundEntryPoint() async {
+  debugPrint("✅ Dart: backgroundEntryPoint() called");
 
-void listenMessagesToDartBackground() {
-  debugPrint("Dart: listenMessagesToDartBackground() - toDartChannelBackground.binaryMessenger = ${toDartChannelBackground.binaryMessenger}");
+  // Bindingを初期化（これは必須）
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 少し遅延してから登録（これがポイント）
+  await Future.delayed(const Duration(milliseconds: 500));
+
+  final messenger = ServicesBinding.instance!.defaultBinaryMessenger;
+  final toDartChannelBackground = BasicMessageChannel<String>(
+    'com.jimdo.uchida001tmhr.u_location_driver/toDartBackground',
+    StringCodec(),
+    binaryMessenger: messenger,
+  );
+
+  debugPrint("✅ Dart: registering handler for toDartChannelBackground");
+
   toDartChannelBackground.setMessageHandler((message) async {
+    debugPrint("✅ Dart: received message in background isolate: $message");
+
     if (message != null) {
       SendToHost sendToHost = SendToHost();
       sendToHost.send(message);
     }
-    return ("success");
+    return "ACK from Dart";
   });
-}
-
-@pragma('vm:entry-point')
-void backgroundEntryPoint() {
-  debugPrint("Dart: backgroundEntryPoint()");
-  WidgetsFlutterBinding.ensureInitialized();
-  listenMessagesToDartBackground();
 }
 
 @pragma('vm:entry-point') // JIT/AOTコンパイラにエントリポイントであることを知らせる
