@@ -72,7 +72,7 @@ class MessageFromPluginToService {
             }
           }
 
-          messageSendForeground -> {
+          messageSendBackground -> {
             if (message != null) {
               bundle.putLong("callbackHandle", message as Long)
             }

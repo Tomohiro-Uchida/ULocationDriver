@@ -165,13 +165,15 @@ class BackgroundLocationService : Service() {
           sendToDart = sendToBackground
         }
         messageSendInactivate -> {
-          println("BackgroundLocationService: messageSendInactivate -> stopSelf()")
           flutterEngineBackground?.destroy()
+          println("BackgroundLocationService: messageSendInactivate -> flutterEngineBackground.destroy()")
           toDartChannelToForeground = null
           toDartChannelToBackground = null
           val uLocationDriverPlugin = ULocationDriverPlugin()
           uLocationDriverPlugin.stopLocationUpdates()
+          println("BackgroundLocationService: messageSendInactivate -> uLocationDriverPlugin.stopLocationUpdates()")
           (this@BackgroundLocationService).stopSelf()
+          println("BackgroundLocationService: messageSendInactivate -> stopSelf()")
         }
       }
     }

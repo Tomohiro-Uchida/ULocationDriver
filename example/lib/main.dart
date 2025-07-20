@@ -57,10 +57,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final uLocationDriverPlugin = ULocationDriver();
-  final BasicMessageChannel toDartChannelForeground = BasicMessageChannel(
-    "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground",
-    StringCodec()
-  );
+  late BasicMessageChannel toDartChannelForeground;
   String messageFromNative = "Waiting for message form Native ...";
   TextEditingController textEditingControllerFrom = TextEditingController();
   TextEditingController textEditingControllerPassword = TextEditingController();
@@ -71,6 +68,12 @@ class _MyAppState extends State<MyApp> {
   late final AppLifecycleListener appLifecycleListener;
 
   void listenMessagesToDartForeground() {
+    final messenger = ServicesBinding.instance.defaultBinaryMessenger;
+    toDartChannelForeground = BasicMessageChannel(
+        "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground",
+        StringCodec(),
+        binaryMessenger: messenger
+    );
     toDartChannelForeground.setMessageHandler((message) async {
       if (message != null) {
         setState(() {
