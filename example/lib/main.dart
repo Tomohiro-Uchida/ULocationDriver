@@ -13,7 +13,7 @@ import 'package:u_location_driver_example/send_to_host.dart';
 
 @pragma('vm:entry-point')
 void backgroundEntryPoint() async {
-  debugPrint("✅ Dart: backgroundEntryPoint() called");
+  debugPrint("Dart: backgroundEntryPoint() called");
 
   // Bindingを初期化（これは必須）
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,17 +21,17 @@ void backgroundEntryPoint() async {
   // 少し遅延してから登録（これがポイント）
   await Future.delayed(const Duration(milliseconds: 500));
 
-  final messenger = ServicesBinding.instance!.defaultBinaryMessenger;
+  final messenger = ServicesBinding.instance.defaultBinaryMessenger;
   final toDartChannelBackground = BasicMessageChannel<String>(
     'com.jimdo.uchida001tmhr.u_location_driver/toDartBackground',
     StringCodec(),
     binaryMessenger: messenger,
   );
 
-  debugPrint("✅ Dart: registering handler for toDartChannelBackground");
+  debugPrint("Dart: registering handler for toDartChannelBackground");
 
   toDartChannelBackground.setMessageHandler((message) async {
-    debugPrint("✅ Dart: received message in background isolate: $message");
+    debugPrint("Dart: received message in background isolate: $message");
 
     if (message != null) {
       SendToHost sendToHost = SendToHost();
