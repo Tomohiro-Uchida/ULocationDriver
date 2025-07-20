@@ -168,6 +168,7 @@ class _MyAppState extends State<MyApp> {
   void dispose() {
     // 監視の終了を登録
     appLifecycleListener.dispose();
+    debugPrint("executed appLifecycleListener.dispose()");
     super.dispose();
   }
 
