@@ -58,7 +58,7 @@ import java.util.Locale
 
 class MessageFromPluginToService {
   var messageType = messageLocation
-  var message: Any = ""
+  var message: Any? = null
 
   companion object {
     val messageLocation = 1000
@@ -77,10 +77,14 @@ class MessageFromPluginToService {
       val bundle = Bundle()
       when (messageType) {
         messageLocation -> {
-          bundle.putParcelable("location", message as Location?)
+          if (message != null) {
+            bundle.putParcelable("location", message as Location)
+          }
         }
         messageSendForeground -> {
-          bundle.putLong("callbackHandle", message as Long)
+          if (message != null) {
+            bundle.putLong("callbackHandle", message as Long)
+          }
         }
       }
       msg.data = bundle

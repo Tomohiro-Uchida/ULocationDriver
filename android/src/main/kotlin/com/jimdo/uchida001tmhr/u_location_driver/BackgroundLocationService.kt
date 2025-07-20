@@ -139,7 +139,9 @@ class BackgroundLocationService : Service() {
           if (msg.data != null) {
             val bundle: Bundle = msg.data
             callbackHandler = bundle.getLong("callbackHandle", 0L)
-            startBackgroundIsolate(callbackHandler)
+            if (callbackHandler != 0L) {
+              startBackgroundIsolate(callbackHandler)
+            }
           }
           sendToDart = sendToForeground
         }

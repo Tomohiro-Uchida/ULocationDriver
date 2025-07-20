@@ -80,22 +80,6 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     debugPrint("Dart: initState()");
     super.initState();
-    SharedPreferences.getInstance().then((prefs) {
-      this.prefs = prefs;
-      String? username = prefs.getString("fromAddress");
-      String? password = prefs.getString("password");
-      String? toAddress = prefs.getString("toAddress");
-      if (username != null &&
-          username.isNotEmpty &&
-          password != null &&
-          password.isNotEmpty &&
-          toAddress != null &&
-          toAddress.isNotEmpty) {
-        textEditingControllerFrom.text = username;
-        textEditingControllerPassword.text = password;
-        textEditingControllerTo.text = toAddress;
-      }
-    });
 
     appLifecycleListener = AppLifecycleListener(
       onShow: () {
@@ -140,6 +124,32 @@ class _MyAppState extends State<MyApp> {
     );
     listenMessagesToDartForeground();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      SharedPreferences.getInstance().then((prefs) {
+        this.prefs = prefs;
+        String? username = prefs.getString("fromAddress");
+        String? password = prefs.getString("password");
+        String? toAddress = prefs.getString("toAddress");
+        if (username != null &&
+            username.isNotEmpty &&
+            password != null &&
+            password.isNotEmpty &&
+            toAddress != null &&
+            toAddress.isNotEmpty) {
+          textEditingControllerFrom.text = username;
+          textEditingControllerPassword.text = password;
+          textEditingControllerTo.text = toAddress;
+        }
+        // Restart Foreground if activated By User but not inactivated.
+        var activateByUser = prefs.getBool("activatedByUser");
+        debugPrint("Dart: postFrameCallback() and prefs is prepared.");
+        if (activateByUser != null && activateByUser) {
+          try {
+            debugPrint("Dart: activatedByUser = $activateByUser -> activateForeground");
+            uLocationDriverPlugin.activateForeground();
+          } catch (_) {
+          }
+        }
+      });
     });
   }
 
