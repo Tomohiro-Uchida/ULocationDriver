@@ -187,15 +187,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       StringCodec.INSTANCE
     )
     println("ULocationDriverPlugin: onAttachedToEngine(): toDartChannelToForeground = $toDartChannelToForeground")
-    /*
-    intentToControlMessageChannel = Intent(thisContext, BackgroundLocationService::class.java)
-    intentToControlMessageChannel?.setClassName(
-      thisContext.packageName,
-      "com.jimdo.uchida001tmhr.u_location_driver.BackgroundLocationService"
-    )
-    thisContext.startForegroundService(intentToControlMessageChannel)
-    thisContext.bindService(intentToControlMessageChannel!!, connection, Context.BIND_AUTO_CREATE)
-     */
   }
 
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
