@@ -1,4 +1,3 @@
-
 import 'dart:collection';
 import 'dart:isolate';
 import 'dart:ui';
@@ -11,38 +10,39 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:u_location_driver/u_location_driver.dart';
 import 'package:u_location_driver_example/send_to_host.dart';
 
-@pragma('vm:entry-point')
-void backgroundEntryPoint() async {
-  debugPrint("Dart: backgroundEntryPoint() called");
+BasicMessageChannel<String>? toDartChannelBackground;
 
-  // Bindingを初期化（これは必須）
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // 少し遅延してから登録（これがポイント）
-  await Future.delayed(const Duration(milliseconds: 500));
-
+void connectBackgroundMessageHandler() {
   final messenger = ServicesBinding.instance.defaultBinaryMessenger;
-  final toDartChannelBackground = BasicMessageChannel<String>(
-    'com.jimdo.uchida001tmhr.u_location_driver/toDartBackground',
+  toDartChannelBackground = BasicMessageChannel(
+    "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground",
     StringCodec(),
     binaryMessenger: messenger,
   );
-
   debugPrint("Dart: registering handler for toDartChannelBackground");
-
-  toDartChannelBackground.setMessageHandler((message) async {
+  toDartChannelBackground?.setMessageHandler((message) async {
     debugPrint("Dart: received message in background isolate: $message");
-
     if (message != null) {
       SendToHost sendToHost = SendToHost();
       sendToHost.send(message);
     }
-    return "ACK from Dart";
+    return "ACK";
   });
 }
 
+@pragma('vm:entry-point')
+void backgroundEntryPoint() async {
+  debugPrint("Dart: backgroundEntryPoint() called");
+  // Bindingを初期化（これは必須）
+  WidgetsFlutterBinding.ensureInitialized();
+  // 少し遅延してから登録（これがポイント）
+  await Future.delayed(const Duration(milliseconds: 500));
+  connectBackgroundMessageHandler();
+}
+
 @pragma('vm:entry-point') // JIT/AOTコンパイラにエントリポイントであることを知らせる
-void main() { // The name must be main().
+void main() {
+  // The name must be main().
   debugPrint("Dart: main()");
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
@@ -67,14 +67,15 @@ class _MyAppState extends State<MyApp> {
 
   late final AppLifecycleListener appLifecycleListener;
 
-  void listenMessagesToDartForeground() {
+  void connectForegroundMassageHandler() {
     final messenger = ServicesBinding.instance.defaultBinaryMessenger;
     toDartChannelForeground = BasicMessageChannel(
-        "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground",
-        StringCodec(),
-        binaryMessenger: messenger
+      "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground",
+      StringCodec(),
+      binaryMessenger: messenger,
     );
     toDartChannelForeground.setMessageHandler((message) async {
+      debugPrint("Dart: received message in main isolate: $message");
       if (message != null) {
         setState(() {
           messageFromNative = message;
@@ -82,8 +83,19 @@ class _MyAppState extends State<MyApp> {
         SendToHost sendToHost = SendToHost();
         sendToHost.send(message);
       }
-      return ("success");
+      return ("ACK");
     });
+  }
+
+  Future<void> registerBackgroundIsolate() async {
+    final callbackHandle = PluginUtilities.getCallbackHandle(backgroundEntryPoint);
+    if (callbackHandle != null) {
+      HashMap<String, dynamic> arguments = HashMap();
+      arguments.addAll({"callbackHandle": callbackHandle.toRawHandle()});
+      debugPrint("Dart: activateForeground");
+      await uLocationDriverPlugin.registerBackgroundIsolate(arguments);
+    }
+    return;
   }
 
   @override
@@ -97,13 +109,13 @@ class _MyAppState extends State<MyApp> {
       },
       onResume: () async {
         debugPrint("Dart: onResume()");
+        connectForegroundMassageHandler();
         var activateByUser = prefs.getBool("activatedByUser");
         if (activateByUser != null && activateByUser) {
           try {
             debugPrint("Dart: onResume() -> $activateByUser -> activateForeground");
             await uLocationDriverPlugin.activateForeground();
-          } catch (_) {
-          }
+          } catch (_) {}
         }
       },
       onHide: () {
@@ -111,6 +123,7 @@ class _MyAppState extends State<MyApp> {
       },
       onInactive: () async {
         debugPrint("Dart: onInactive()");
+        connectBackgroundMessageHandler();
         var activateByUser = prefs.getBool("activatedByUser");
         if (activateByUser != null && activateByUser) {
           try {
@@ -132,8 +145,9 @@ class _MyAppState extends State<MyApp> {
         debugPrint("Dart: onRestart()");
       },
     );
-    listenMessagesToDartForeground();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await registerBackgroundIsolate();
+      connectForegroundMassageHandler();
       SharedPreferences.getInstance().then((prefs) {
         this.prefs = prefs;
         String? username = prefs.getString("fromAddress");
@@ -156,8 +170,7 @@ class _MyAppState extends State<MyApp> {
           try {
             debugPrint("Dart: activatedByUser = $activateByUser -> activateForeground");
             uLocationDriverPlugin.activateForeground();
-          } catch (_) {
-          }
+          } catch (_) {}
         }
       });
     });
@@ -170,20 +183,6 @@ class _MyAppState extends State<MyApp> {
     appLifecycleListener.dispose();
     debugPrint("executed appLifecycleListener.dispose()");
     super.dispose();
-  }
-
-  Future<dynamic> handleMethodCallForeground(MethodCall call) async {
-    debugPrint("Dart: handleMethodCallForeground -> call.method == ${call.method}");
-    if (call.method == "informToForeground") {
-      debugPrint("Dart: handleMethodCallForeground -> call.method is processing informToForeground");
-      setState(() {
-        messageFromNative = call.arguments;
-        debugPrint("Dart: messageFromNative = $messageFromNative");
-      });
-      SendToHost sendToHost = SendToHost();
-      sendToHost.send(call.arguments);
-    }
-    return Future.value("success");
   }
 
   @override
@@ -224,14 +223,9 @@ class _MyAppState extends State<MyApp> {
               ),
               TextButton(
                 onPressed: (() {
-                  final callbackHandle = PluginUtilities.getCallbackHandle(backgroundEntryPoint);
-                  if (callbackHandle != null) {
-                    HashMap<String, dynamic> arguments = HashMap();
-                    arguments.addAll({"callbackHandle": callbackHandle.toRawHandle()});
-                    debugPrint("Dart: activateForeground");
-                    uLocationDriverPlugin.activateForeground(arguments: arguments);
-                    prefs.setBool("activatedByUser", true);
-                  }
+                  connectForegroundMassageHandler();
+                  uLocationDriverPlugin.activateForeground();
+                  prefs.setBool("activatedByUser", true);
                 }),
                 child: Text("Activate"),
               ),

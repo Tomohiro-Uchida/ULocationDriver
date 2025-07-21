@@ -9,13 +9,18 @@ class MethodChannelULocationDriver extends ULocationDriverPlatform {
   final methodChannel = const MethodChannel("com.jimdo.uchida001tmhr.u_location_driver/fromDart");
 
   @override
-  Future<String?> activateForeground({HashMap<String, dynamic>? arguments}) async {
+  Future<String?> registerBackgroundIsolate(HashMap<String, dynamic>? arguments) async {
     String? result = "";
-    if (arguments == null) {
-      result = await methodChannel.invokeMethod<String>("activateForeground");
-    } else {
-      result = await methodChannel.invokeMethod<String>("activateForeground", arguments);
+    if (arguments != null) {
+      result = await methodChannel.invokeMethod<String>("registerBackgroundIsolate", arguments);
     }
+    return result;
+  }
+
+  @override
+  Future<String?> activateForeground() async {
+    String? result = "";
+    result = await methodChannel.invokeMethod<String>("activateForeground");
     return result;
   }
 

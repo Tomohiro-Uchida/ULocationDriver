@@ -29,6 +29,8 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.registerBackgroundIsolate
+import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.startBackgroundIsolate
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageServiceToPlugin
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.activityMessenger
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.serviceMessenger
@@ -43,6 +45,7 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.BasicMessageChannel
+import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.StringCodec
 
 class MessageFromPluginToService {
@@ -50,11 +53,13 @@ class MessageFromPluginToService {
   var message: Any? = null
 
   companion object {
-    val messageLocation = 1000
-    val messageSendForeground = 2000
-    val messageSendBackground = 2010
-    val messageSendInactivate = 2020
-    val messageServiceToPlugin = 3000
+    val registerBackgroundIsolate = 1000
+    val startBackgroundIsolate = 1010
+    val messageLocation = 2000
+    val messageSendForeground = 3000
+    val messageSendBackground = 3010
+    val messageSendInactivate = 3020
+    val messageServiceToPlugin = 4000
     var serviceMessenger: Messenger? = null
     var activityMessenger: Messenger? = null
   }
@@ -72,7 +77,7 @@ class MessageFromPluginToService {
             }
           }
 
-          messageSendBackground -> {
+          registerBackgroundIsolate -> {
             if (message != null) {
               bundle.putLong("callbackHandle", message as Long)
             }
@@ -131,11 +136,14 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     var attachCount = 0
     var toDartChannelToForeground: BasicMessageChannel<String>? = null
     var toDartChannelToBackground: BasicMessageChannel<String>? = null
+    var binaryMessengerToDart: BinaryMessenger? = null
+    var intentToControlMessageChannel: Intent? = null
     var myPackageName: String? = ""
     var backgroundFlutterEngine: FlutterEngine? = null
     var backgroundDartExecutor: DartExecutor? = null
     lateinit var eventSinkForeground: EventChannel.EventSink
     lateinit var eventSinkBackground: EventChannel.EventSink
+    var flutterEngineBackground: FlutterEngine? = null
   }
 
   private fun getLocationPermissionLocation() {
@@ -163,24 +171,29 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    println("ULocationDriverPlugin: onAttachedToEngine() - ${flutterPluginBinding.binaryMessenger}")
+    println("ULocationDriverPlugin: onAttachedToEngine(): ${flutterPluginBinding.binaryMessenger}")
+    flutterEngineBackground?.destroy()
+    println("BackgroundLocationService -> flutterEngineBackground.destroy()")
+    toDartChannelToBackground = null
+    stopLocationUpdates()
+    println("BackgroundLocationService -> stopLocationUpdates()")
     fromDartChannel = MethodChannel(flutterPluginBinding.binaryMessenger, fromDartChannelName)
     fromDartChannel.setMethodCallHandler(this)
     thisContext = flutterPluginBinding.applicationContext
-    if (toDartChannelToForeground == null) { // Foreground Channel
-      toDartChannelToForeground = BasicMessageChannel(
-        flutterPluginBinding.binaryMessenger,
-        toDartChannelNameForeground,
-        StringCodec.INSTANCE
-      )
-      val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
-      intentLocation.setClassName(
-        thisContext.packageName,
-        "com.jimdo.uchida001tmhr.u_location_driver.BackgroundLocationService"
-      )
-      thisContext.startForegroundService(intentLocation)
-      thisContext.bindService(intentLocation, connection, Context.BIND_AUTO_CREATE)
-    }
+    binaryMessengerToDart = flutterPluginBinding.binaryMessenger
+    toDartChannelToForeground = BasicMessageChannel(
+      binaryMessengerToDart!!,
+      toDartChannelNameForeground,
+      StringCodec.INSTANCE
+    )
+    println("ULocationDriverPlugin: onAttachedToEngine(): toDartChannelToForeground = $toDartChannelToForeground")
+    intentToControlMessageChannel = Intent(thisContext, BackgroundLocationService::class.java)
+    intentToControlMessageChannel?.setClassName(
+      thisContext.packageName,
+      "com.jimdo.uchida001tmhr.u_location_driver.BackgroundLocationService"
+    )
+    thisContext.startForegroundService(intentToControlMessageChannel)
+    thisContext.bindService(intentToControlMessageChannel!!, connection, Context.BIND_AUTO_CREATE)
   }
 
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
@@ -206,7 +219,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
     println("ULocationDriverPlugin: onDetachedFromEngine()")
-    toDartChannelToForeground = null
   }
 
   override fun onDetachedFromActivity() {
@@ -225,15 +237,22 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     println("ULocationDriverPlugin: onMethodCall() -> ${call.method}")
     val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
     when (call.method) {
-      "activateForeground" -> {
+      "registerBackgroundIsolate" -> {
         val messageFromPluginToService = MessageFromPluginToService()
-        messageFromPluginToService.messageType = MessageFromPluginToService.messageSendForeground
+        messageFromPluginToService.messageType = MessageFromPluginToService.registerBackgroundIsolate
         if (call.arguments != null) {
           val argCallbackHandle: Long? = call.argument<Long>("callbackHandle")
           if (argCallbackHandle != null) {
             messageFromPluginToService.message = argCallbackHandle
           }
         }
+        messageFromPluginToService.sendMessageToService()
+        result.success("success")
+      }
+
+      "activateForeground" -> {
+        val messageFromPluginToService = MessageFromPluginToService()
+        messageFromPluginToService.messageType = MessageFromPluginToService.messageSendForeground
         messageFromPluginToService.sendMessageToService()
         getLocationPermissionLocation()
         result.success("success")
@@ -260,7 +279,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
   }
 
-
   internal class ActivityHandler(activity: Activity) : Handler(Looper.getMainLooper()) {
     override fun handleMessage(msg: Message) {
       when (msg.what) {
@@ -272,7 +290,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       }
     }
   }
-
 
   @RequiresPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
   private fun requestDeviceLocation() {

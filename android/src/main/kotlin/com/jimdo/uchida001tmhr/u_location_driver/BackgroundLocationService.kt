@@ -23,10 +23,13 @@ import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Comp
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendBackground
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendForeground
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendInactivate
+import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.registerBackgroundIsolate
+import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.startBackgroundIsolate
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.backgroundDartExecutor
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.backgroundDartExecutor
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.eventSinkForeground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.eventSinkBackground
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.flutterEngineBackground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelNameBackground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelToForeground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelToBackground
@@ -54,9 +57,8 @@ class BackgroundLocationService : Service() {
   val serviceContext = this
   val sendNone = 1000
   val sendToForeground = 2000
-  val sendToBackground = 3000
+  val sendToBackground = 3010
   var sendToDart = sendNone
-  var flutterEngineBackground: FlutterEngine? = null
   var callbackHandler = 0L
 
   override fun onBind(intent: Intent): IBinder {
@@ -65,7 +67,7 @@ class BackgroundLocationService : Service() {
     return serviceMessenger!!.binder
   }
 
-  private fun startBackgroundIsolate(callbackHandle: Long) {
+  private fun _startBackgroundIsolate(callbackHandle: Long) {
     println("startBackgroundIsolate: received callbackHandle = $callbackHandle")
 
     // Flutter 初期化
@@ -80,8 +82,8 @@ class BackgroundLocationService : Service() {
       return
     }
 
-    println("startBackgroundIsolate: callbackName = ${callbackInfo.callbackName}")
     println("startBackgroundIsolate: callbackLibraryPath = ${callbackInfo.callbackLibraryPath}")
+    println("startBackgroundIsolate: callbackName = ${callbackInfo.callbackName}")
 
     // FlutterEngine を生成して DartEntrypoint を起動
     flutterEngineBackground = FlutterEngine(applicationContext)
@@ -102,12 +104,12 @@ class BackgroundLocationService : Service() {
     println("startBackgroundIsolate: Background isolate started")
   }
 
-
   fun informLocationToDartForeground(location: Location?) {
     val locale = Locale.JAPAN
     val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
     val dateString = dateTimeFormatter.format(LocalDateTime.now())
     val message = "$dateString,${location?.latitude},${location?.longitude}"
+    println("BackgroundLocationService:  informLocationToDartForeground(): toDartChannelToForeground = $toDartChannelToForeground")
     if (toDartChannelToForeground != null) {
       toDartChannelToForeground?.send(message) { reply: String? ->
         println("BackgroundLocationService: Sent via toDartChannelToForeground -> $reply")
@@ -120,8 +122,8 @@ class BackgroundLocationService : Service() {
     val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
     val dateString = dateTimeFormatter.format(LocalDateTime.now())
     val message = "$dateString,${location?.latitude},${location?.longitude}"
+    println("BackgroundLocationService:  informLocationToDartBackground(): toDartChannelToBackground = $toDartChannelToForeground")
     if (toDartChannelToBackground != null) {
-      println("BackgroundLocationService: Sending via toDartChannelToBackground")
       toDartChannelToBackground?.send(message) { reply: String? ->
         println("BackgroundLocationService: Sent via toDartChannelToBackground -> $reply")
       }
@@ -133,47 +135,53 @@ class BackgroundLocationService : Service() {
     override fun handleMessage(msg: Message) {
       when (msg.what) {
         messageLocation -> {
-          when(sendToDart) {
+          when (sendToDart) {
             sendToForeground -> {
               println("BackgroundLocationService: messageLocation -> sendToForeground")
               val bundle: Bundle = msg.data
               informLocationToDartForeground(bundle.getParcelable("location", Location::class.java))
             }
+
             sendToBackground -> {
               println("BackgroundLocationService: messageLocation -> sendToBackground")
               val bundle: Bundle = msg.data
               informLocationToDartBackground(bundle.getParcelable("location", Location::class.java))
             }
+
             else -> {
               println("BackgroundLocationService: messageLocation -> else")
             }
           }
         }
-        messageSendForeground -> {
-          println("BackgroundLocationService: messageSendForeground")
+
+        registerBackgroundIsolate -> {
+          println("BackgroundLocationService: registerBackgroundIsolate: msg.data = ${msg.data}")
           if (msg.data != null) {
             val bundle: Bundle = msg.data
             callbackHandler = bundle.getLong("callbackHandle", 0L)
-            if (callbackHandler != 0L) {
-              startBackgroundIsolate(callbackHandler)
-            }
+            println("BackgroundLocationService: registerBackgroundIsolate: callbackHandler = $callbackHandler")
           }
+        }
+
+        messageSendForeground -> {
+          println("BackgroundLocationService: messageSendForeground")
           sendToDart = sendToForeground
         }
+
         messageSendBackground -> {
-          println("BackgroundLocationService: messageSendBackground")
+          println("BackgroundLocationService: messageSendBackground: callbackHandler = $callbackHandler")
+          if (callbackHandler != 0L) {
+            _startBackgroundIsolate(callbackHandler)
+          }
           sendToDart = sendToBackground
         }
+
         messageSendInactivate -> {
           flutterEngineBackground?.destroy()
           println("BackgroundLocationService: messageSendInactivate -> flutterEngineBackground.destroy()")
-          toDartChannelToForeground = null
-          toDartChannelToBackground = null
           val uLocationDriverPlugin = ULocationDriverPlugin()
           uLocationDriverPlugin.stopLocationUpdates()
           println("BackgroundLocationService: messageSendInactivate -> uLocationDriverPlugin.stopLocationUpdates()")
-          (this@BackgroundLocationService).stopSelf()
-          println("BackgroundLocationService: messageSendInactivate -> stopSelf()")
         }
       }
     }
@@ -193,7 +201,6 @@ class BackgroundLocationService : Service() {
       val notificationManager = applicationContext.getSystemService(NotificationManager::class.java)
       notificationManager.createNotificationChannel(notificationChannel)
       val notification = NotificationCompat.Builder(this, serviceChannelId).build()
-
       startForeground(
         /* service = */ this,
         /* id = */ notificationId, // Cannot be 0
@@ -207,14 +214,12 @@ class BackgroundLocationService : Service() {
       }
     }
     super.onStartCommand(intent, flags, startId)
-    return START_STICKY
+    return START_NOT_STICKY
   }
 
   override fun onDestroy() {
     println("BackgroundLocationService: BackgroundLocationService was destroyed!");
     flutterEngineBackground?.destroy()
-    toDartChannelToForeground = null
-    toDartChannelToBackground = null
     val uLocationDriverPlugin = ULocationDriverPlugin()
     uLocationDriverPlugin.stopLocationUpdates()
     super.onDestroy()

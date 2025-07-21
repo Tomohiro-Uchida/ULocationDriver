@@ -25,7 +25,11 @@ abstract class ULocationDriverPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<String?> activateForeground({HashMap<String, dynamic>? arguments}) async {
+  Future<String?> registerBackgroundIsolate(HashMap<String, dynamic>? arguments) async {
+    throw UnimplementedError('registerBackgroundIsolate() has not been implemented.');
+  }
+
+  Future<String?> activateForeground() async {
     throw UnimplementedError('activateForeground() has not been implemented.');
   }
 
