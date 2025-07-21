@@ -29,6 +29,10 @@ abstract class ULocationDriverPlatform extends PlatformInterface {
     throw UnimplementedError('registerBackgroundIsolate() has not been implemented.');
   }
 
+  Future<String?> startBackgroundIsolate() async {
+    throw UnimplementedError('startBackgroundIsolate() has not been implemented.');
+  }
+
   Future<String?> activateForeground() async {
     throw UnimplementedError('activateForeground() has not been implemented.');
   }

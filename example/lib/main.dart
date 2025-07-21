@@ -92,8 +92,8 @@ class _MyAppState extends State<MyApp> {
     if (callbackHandle != null) {
       HashMap<String, dynamic> arguments = HashMap();
       arguments.addAll({"callbackHandle": callbackHandle.toRawHandle()});
-      debugPrint("Dart: activateForeground");
       await uLocationDriverPlugin.registerBackgroundIsolate(arguments);
+      debugPrint("Dart: registerBackgroundIsolate");
     }
     return;
   }
@@ -110,30 +110,16 @@ class _MyAppState extends State<MyApp> {
       onResume: () async {
         debugPrint("Dart: onResume()");
         connectForegroundMassageHandler();
-        var activateByUser = prefs.getBool("activatedByUser");
-        if (activateByUser != null && activateByUser) {
-          try {
-            debugPrint("Dart: onResume() -> $activateByUser -> activateForeground");
-            await uLocationDriverPlugin.activateForeground();
-          } catch (_) {}
-        }
+        await uLocationDriverPlugin.activateForeground();
       },
       onHide: () {
         debugPrint("Dart: onHide()");
       },
       onInactive: () async {
         debugPrint("Dart: onInactive()");
-        connectBackgroundMessageHandler();
-        var activateByUser = prefs.getBool("activatedByUser");
-        if (activateByUser != null && activateByUser) {
-          try {
-            debugPrint("Dart: onInactive() -> $activateByUser -> activateBackground");
-            final result = await uLocationDriverPlugin.activateBackground();
-            if (result == "success") {
-              SystemNavigator.pop();
-            }
-          } catch (_) {}
-        }
+        await registerBackgroundIsolate();
+        await uLocationDriverPlugin.startBackgroundIsolate();
+        await uLocationDriverPlugin.activateBackground();
       },
       onPause: () {
         debugPrint("Dart: onPause()");
@@ -146,8 +132,6 @@ class _MyAppState extends State<MyApp> {
       },
     );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await registerBackgroundIsolate();
-      connectForegroundMassageHandler();
       SharedPreferences.getInstance().then((prefs) {
         this.prefs = prefs;
         String? username = prefs.getString("fromAddress");
@@ -162,15 +146,6 @@ class _MyAppState extends State<MyApp> {
           textEditingControllerFrom.text = username;
           textEditingControllerPassword.text = password;
           textEditingControllerTo.text = toAddress;
-        }
-        // Restart Foreground if activated By User but not inactivated.
-        var activateByUser = prefs.getBool("activatedByUser");
-        debugPrint("Dart: postFrameCallback() and prefs is prepared.");
-        if (activateByUser != null && activateByUser) {
-          try {
-            debugPrint("Dart: activatedByUser = $activateByUser -> activateForeground");
-            uLocationDriverPlugin.activateForeground();
-          } catch (_) {}
         }
       });
     });
@@ -225,7 +200,7 @@ class _MyAppState extends State<MyApp> {
                 onPressed: (() {
                   connectForegroundMassageHandler();
                   uLocationDriverPlugin.activateForeground();
-                  prefs.setBool("activatedByUser", true);
+                  debugPrint("Dart: activateForeground");
                 }),
                 child: Text("Activate"),
               ),
@@ -233,7 +208,6 @@ class _MyAppState extends State<MyApp> {
                 onPressed: (() {
                   uLocationDriverPlugin.inactivate();
                   debugPrint("Dart: inactivate");
-                  prefs.setBool("activatedByUser", false);
                 }),
                 child: Text("Inactivate"),
               ),

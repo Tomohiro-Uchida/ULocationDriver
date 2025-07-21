@@ -19,12 +19,12 @@ import android.os.Messenger
 import androidx.compose.ui.window.application
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat.startForeground
+import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.registerBackgroundIsolate
+import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.startBackgroundIsolate
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageLocation
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendBackground
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendForeground
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendInactivate
-import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.registerBackgroundIsolate
-import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.startBackgroundIsolate
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.backgroundDartExecutor
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.backgroundDartExecutor
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.eventSinkForeground
@@ -55,10 +55,10 @@ import java.util.Locale
 
 class BackgroundLocationService : Service() {
   val serviceContext = this
-  val sendNone = 1000
+  // val sendNone = 1000
   val sendToForeground = 2000
   val sendToBackground = 3010
-  var sendToDart = sendNone
+  var sendToDart = sendToForeground
   var callbackHandler = 0L
 
   override fun onBind(intent: Intent): IBinder {
@@ -122,7 +122,7 @@ class BackgroundLocationService : Service() {
     val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
     val dateString = dateTimeFormatter.format(LocalDateTime.now())
     val message = "$dateString,${location?.latitude},${location?.longitude}"
-    println("BackgroundLocationService:  informLocationToDartBackground(): toDartChannelToBackground = $toDartChannelToForeground")
+    println("BackgroundLocationService: informLocationToDartBackground(): toDartChannelToBackground = $toDartChannelToForeground")
     if (toDartChannelToBackground != null) {
       toDartChannelToBackground?.send(message) { reply: String? ->
         println("BackgroundLocationService: Sent via toDartChannelToBackground -> $reply")
@@ -163,16 +163,20 @@ class BackgroundLocationService : Service() {
           }
         }
 
+        startBackgroundIsolate -> {
+          println("BackgroundLocationService: startBackgroundIsolate: callbackHandler = $callbackHandler")
+          if (callbackHandler != 0L) {
+            _startBackgroundIsolate(callbackHandler)
+          }
+        }
+
         messageSendForeground -> {
           println("BackgroundLocationService: messageSendForeground")
           sendToDart = sendToForeground
         }
 
         messageSendBackground -> {
-          println("BackgroundLocationService: messageSendBackground: callbackHandler = $callbackHandler")
-          if (callbackHandler != 0L) {
-            _startBackgroundIsolate(callbackHandler)
-          }
+          println("BackgroundLocationService: messageSendBackground")
           sendToDart = sendToBackground
         }
 
@@ -214,7 +218,7 @@ class BackgroundLocationService : Service() {
       }
     }
     super.onStartCommand(intent, flags, startId)
-    return START_NOT_STICKY
+    return START_STICKY
   }
 
   override fun onDestroy() {

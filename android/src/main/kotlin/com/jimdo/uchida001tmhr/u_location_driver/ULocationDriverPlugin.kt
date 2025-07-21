@@ -84,7 +84,7 @@ class MessageFromPluginToService {
           }
         }
         msg.data = bundle
-        println("ULocationDriverPlugin: sendMessageToService()")
+        println("ULocationDriverPlugin: sendMessageToService($messageType)")
         serviceMessenger?.send(msg)
       }
     } catch (e: RemoteException) {
@@ -187,6 +187,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       StringCodec.INSTANCE
     )
     println("ULocationDriverPlugin: onAttachedToEngine(): toDartChannelToForeground = $toDartChannelToForeground")
+    /*
     intentToControlMessageChannel = Intent(thisContext, BackgroundLocationService::class.java)
     intentToControlMessageChannel?.setClassName(
       thisContext.packageName,
@@ -194,16 +195,14 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     )
     thisContext.startForegroundService(intentToControlMessageChannel)
     thisContext.bindService(intentToControlMessageChannel!!, connection, Context.BIND_AUTO_CREATE)
+     */
   }
 
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
-    println("ULocationDriverPlugin: onAttachedToActivity() - 1")
+    println("ULocationDriverPlugin: onAttachedToActivity()")
     myPackageName = binding.activity.intent.getComponent()?.getPackageName()
-    println("ULocationDriverPlugin: onAttachedToActivity() - 2")
     thisActivity = binding.activity
-    println("ULocationDriverPlugin: onAttachedToActivity() - 3")
     activityMessenger = Messenger(ActivityHandler(thisActivity))
-    println("ULocationDriverPlugin: onAttachedToActivity() - 4")
 
     requestPermissionLauncherFineLocation =
       (thisActivity as ComponentActivity).registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -250,7 +249,21 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         result.success("success")
       }
 
+      "startBackgroundIsolate" -> {
+        val messageFromPluginToService = MessageFromPluginToService()
+        messageFromPluginToService.messageType = MessageFromPluginToService.startBackgroundIsolate
+        messageFromPluginToService.sendMessageToService()
+        result.success("success")
+      }
+
       "activateForeground" -> {
+        intentToControlMessageChannel = Intent(thisContext, BackgroundLocationService::class.java)
+        intentToControlMessageChannel?.setClassName(
+          thisContext.packageName,
+          "com.jimdo.uchida001tmhr.u_location_driver.BackgroundLocationService"
+        )
+        thisContext.startForegroundService(intentToControlMessageChannel)
+        thisContext.bindService(intentToControlMessageChannel!!, connection, Context.BIND_AUTO_CREATE)
         val messageFromPluginToService = MessageFromPluginToService()
         messageFromPluginToService.messageType = MessageFromPluginToService.messageSendForeground
         messageFromPluginToService.sendMessageToService()
