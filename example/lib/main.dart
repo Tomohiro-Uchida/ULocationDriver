@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui';
 
@@ -10,34 +11,38 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:u_location_driver/u_location_driver.dart';
 import 'package:u_location_driver_example/send_to_host.dart';
 
-BasicMessageChannel<String>? toDartChannelBackground;
+BasicMessageChannel<String>? toDartChannelBackgroundAndroid;
 
 void connectBackgroundMessageHandler() {
-  final messenger = ServicesBinding.instance.defaultBinaryMessenger;
-  toDartChannelBackground = BasicMessageChannel(
-    "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground",
-    StringCodec(),
-    binaryMessenger: messenger,
-  );
-  debugPrint("Dart: registering handler for toDartChannelBackground");
-  toDartChannelBackground?.setMessageHandler((message) async {
-    debugPrint("Dart: received message in background isolate: $message");
-    if (message != null) {
-      SendToHost sendToHost = SendToHost();
-      sendToHost.send(message);
-    }
-    return "ACK";
-  });
+  if (Platform.isAndroid) {
+    final messenger = ServicesBinding.instance.defaultBinaryMessenger;
+    toDartChannelBackgroundAndroid = BasicMessageChannel(
+      "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground",
+      StringCodec(),
+      binaryMessenger: messenger,
+    );
+    debugPrint("Dart: registering handler for toDartChannelBackground");
+    toDartChannelBackgroundAndroid?.setMessageHandler((message) async {
+      debugPrint("Dart: received message in background isolate: $message");
+      if (message != null) {
+        SendToHost sendToHost = SendToHost();
+        sendToHost.send(message);
+      }
+      return "ACK";
+    });
+  }
 }
 
 @pragma('vm:entry-point')
 void backgroundEntryPoint() async {
-  debugPrint("Dart: backgroundEntryPoint() called");
-  // Bindingを初期化（これは必須）
-  WidgetsFlutterBinding.ensureInitialized();
-  // 少し遅延してから登録（これがポイント）
-  await Future.delayed(const Duration(milliseconds: 500));
-  connectBackgroundMessageHandler();
+  if (Platform.isAndroid) {
+    debugPrint("Dart: backgroundEntryPoint() called");
+    // Bindingを初期化（これは必須）
+    WidgetsFlutterBinding.ensureInitialized();
+    // 少し遅延してから登録（これがポイント）
+    await Future.delayed(const Duration(milliseconds: 500));
+    connectBackgroundMessageHandler();
+  }
 }
 
 @pragma('vm:entry-point') // JIT/AOTコンパイラにエントリポイントであることを知らせる
@@ -88,12 +93,14 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> registerBackgroundIsolate() async {
-    final callbackHandle = PluginUtilities.getCallbackHandle(backgroundEntryPoint);
-    if (callbackHandle != null) {
-      HashMap<String, dynamic> arguments = HashMap();
-      arguments.addAll({"callbackHandle": callbackHandle.toRawHandle()});
-      await uLocationDriverPlugin.registerBackgroundIsolate(arguments);
-      debugPrint("Dart: registerBackgroundIsolate");
+    if (Platform.isAndroid) {
+      final callbackHandle = PluginUtilities.getCallbackHandle(backgroundEntryPoint);
+      if (callbackHandle != null) {
+        HashMap<String, dynamic> arguments = HashMap();
+        arguments.addAll({"callbackHandle": callbackHandle.toRawHandle()});
+        await uLocationDriverPlugin.registerBackgroundIsolate(arguments);
+        debugPrint("Dart: registerBackgroundIsolate");
+      }
     }
     return;
   }
@@ -117,8 +124,10 @@ class _MyAppState extends State<MyApp> {
       },
       onInactive: () async {
         debugPrint("Dart: onInactive()");
-        await registerBackgroundIsolate();
-        await uLocationDriverPlugin.startBackgroundIsolate();
+        if (Platform.isAndroid) {
+          await registerBackgroundIsolate();
+          await uLocationDriverPlugin.startBackgroundIsolate();
+        }
         await uLocationDriverPlugin.activateBackground();
       },
       onPause: () {

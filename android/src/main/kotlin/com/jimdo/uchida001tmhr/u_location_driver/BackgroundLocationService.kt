@@ -171,12 +171,12 @@ class BackgroundLocationService : Service() {
         }
 
         messageSendForeground -> {
-          println("BackgroundLocationService: messageSendForeground")
+          println("BackgroundLocationService: sendToDart is connected to Foreground")
           sendToDart = sendToForeground
         }
 
         messageSendBackground -> {
-          println("BackgroundLocationService: messageSendBackground")
+          println("BackgroundLocationService: sendToDart is connected to Background")
           sendToDart = sendToBackground
         }
 
