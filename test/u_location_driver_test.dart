@@ -26,6 +26,18 @@ class MockULocationDriverPlatform
     throw UnimplementedError();
   }
 
+  @override
+  Future<String?> registerBackgroundIsolate(HashMap<String, dynamic>? arguments) {
+    // TODO: implement registerBackgroundIsolate
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String?> startBackgroundIsolate() {
+    // TODO: implement startBackgroundIsolate
+    throw UnimplementedError();
+  }
+
 }
 
 void main() {

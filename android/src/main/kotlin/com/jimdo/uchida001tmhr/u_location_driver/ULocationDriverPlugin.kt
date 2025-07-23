@@ -48,6 +48,7 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.BasicMessageChannel
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.StringCodec
+import kotlin.system.exitProcess
 
 class MessageFromPluginToService {
   var messageType = messageLocation
@@ -98,7 +99,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   private lateinit var requestPermissionLauncherPostNotification: ActivityResultLauncher<String>
   private lateinit var requestPermissionLauncherFineLocation: ActivityResultLauncher<String>
   private lateinit var requestPermissionLauncherBackgroundLocation: ActivityResultLauncher<String>
-  private var fusedLocationClients = mutableListOf<FusedLocationProviderClient>()
   private lateinit var fromDartChannel: MethodChannel
   val locationCallback: LocationCallback = object : LocationCallback() {
     override fun onLocationResult(locationResult: LocationResult) {
@@ -146,6 +146,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     lateinit var eventSinkForeground: EventChannel.EventSink
     lateinit var eventSinkBackground: EventChannel.EventSink
     var flutterEngineBackground: FlutterEngine? = null
+    var fusedLocationClients = mutableListOf<FusedLocationProviderClient>()
   }
   private fun getNotficationPermissionLocation() {
     val permissionPostNotification = ContextCompat.checkSelfPermission(thisContext, POST_NOTIFICATIONS)
@@ -176,9 +177,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     println("ULocationDriverPlugin: onAttachedToEngine(): ${flutterPluginBinding.binaryMessenger}")
-    flutterEngineBackground?.destroy()
-    println("BackgroundLocationService -> flutterEngineBackground.destroy()")
-    toDartChannelToBackground = null
     stopLocationUpdates()
     println("BackgroundLocationService -> stopLocationUpdates()")
     fromDartChannel = MethodChannel(flutterPluginBinding.binaryMessenger, fromDartChannelName)

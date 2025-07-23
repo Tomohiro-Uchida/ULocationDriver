@@ -34,6 +34,9 @@ class MethodChannelULocationDriver extends ULocationDriverPlatform {
   @override
   Future<String?> activateBackground() async {
     final result = await methodChannel.invokeMethod<String>("activateBackground");
+    Future.delayed(Duration(milliseconds: 1000), () {
+      SystemNavigator.pop();
+    });
     return result;
   }
 
