@@ -1,6 +1,5 @@
 package com.jimdo.uchida001tmhr.u_location_driver
 
-import android.app.ActivityManager
 import android.app.Service
 import android.os.Bundle
 import android.app.Activity
@@ -9,8 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.ServiceConnection
-import android.location.Location
-import android.Manifest
 import android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
 import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.Manifest.permission.POST_NOTIFICATIONS
@@ -23,7 +20,6 @@ import android.os.RemoteException
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageServiceToPlugin
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.activityMessenger
@@ -86,10 +82,17 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   private lateinit var requestPermissionLauncherBackgroundLocation: ActivityResultLauncher<String>
   private lateinit var fromDartChannel: MethodChannel
   private var serviceComponentName: ComponentName? = null
+  private var intentToService: Intent? = null
   private val connection = object : ServiceConnection {
     override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
       serviceMessenger = Messenger(binder)
       println("ULocationDriverPlugin: onServiceConnected() -> serviceMessenger = $serviceMessenger")
+      Handler(Looper.getMainLooper()).post {
+        val messageFromPluginToServiceStop = MessageFromPluginToService()
+        messageFromPluginToServiceStop.messageType = MessageFromPluginToService.stopBackgroundIsolate
+        messageFromPluginToServiceStop.sendMessageToService()
+      }
+      // isMainIsolateRunning = true
     }
 
     override fun onServiceDisconnected(name: ComponentName?) {
@@ -108,7 +111,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     var toDartChannelToForeground: BasicMessageChannel<String>? = null
     var toDartChannelToBackground: BasicMessageChannel<String>? = null
     var binaryMessengerToDart: BinaryMessenger? = null
-    var intentToControlMessageChannel: Intent? = null
     var myPackageName: String? = ""
     var backgroundFlutterEngine: FlutterEngine? = null
     var backgroundDartExecutor: DartExecutor? = null
@@ -158,12 +160,20 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     binaryMessengerToDart = flutterPluginBinding.binaryMessenger
     println("ULocationDriverPlugin: onAttachedToEngine(): isMainIsolateRunning = $isMainIsolateRunning")
     if (isMainIsolateRunning) {
+      intentToService = Intent(thisContext, BackgroundLocationService::class.java)
+      intentToService?.setClassName(
+        thisContext.packageName,
+        "com.jimdo.uchida001tmhr.u_location_driver.BackgroundLocationService"
+      )
+      thisContext.stopService(intentToService)
+
       toDartChannelToForeground = BasicMessageChannel(
         binaryMessengerToDart!!,
         toDartChannelNameForeground,
         StringCodec.INSTANCE
       )
       println("ULocationDriverPlugin: onAttachedToEngine(): end : toDartChannelToForeground = $toDartChannelToForeground")
+      isMainIsolateRunning = true
     } else {
       toDartChannelToBackground = BasicMessageChannel(
         binaryMessengerToDart!!,
@@ -180,13 +190,13 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     thisActivity = binding.activity
     activityMessenger = Messenger(ActivityHandler(thisActivity))
 
-    intentToControlMessageChannel = Intent(thisContext, BackgroundLocationService::class.java)
-    intentToControlMessageChannel?.setClassName(
+    intentToService = Intent(thisContext, BackgroundLocationService::class.java)
+    intentToService?.setClassName(
       thisContext.packageName,
       "com.jimdo.uchida001tmhr.u_location_driver.BackgroundLocationService"
     )
-    // thisContext.startForegroundService(intentToControlMessageChannel)
-    thisContext.bindService(intentToControlMessageChannel!!, connection, Context.BIND_AUTO_CREATE)
+    thisContext.startForegroundService(intentToService)
+    thisContext.bindService(intentToService!!, connection, Context.BIND_AUTO_CREATE)
 
     requestPermissionLauncherPostNotification =
       (thisActivity as ComponentActivity).registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -213,7 +223,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-    println("ULocationDriverPlugin: onDetachedFromEngine(): Start")
+    println("ULocationDriverPlugin: onDetachedFromEngine(): Start : isMainIsolateRunning = $isMainIsolateRunning")
     if (isMainIsolateRunning) {
       Handler(Looper.getMainLooper()).post {
         val messageFromPluginToServiceStop = MessageFromPluginToService()
@@ -227,12 +237,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       }
       isMainIsolateRunning = false
     } else {
-      Handler(Looper.getMainLooper()).post {
-        val messageFromPluginToServiceStop = MessageFromPluginToService()
-        messageFromPluginToServiceStop.messageType = MessageFromPluginToService.stopBackgroundIsolate
-        messageFromPluginToServiceStop.sendMessageToService()
-      }
-      isMainIsolateRunning = true
     }
     println("ULocationDriverPlugin: onDetachedFromEngine(): end")
   }
