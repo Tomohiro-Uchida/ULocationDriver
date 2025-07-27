@@ -27,7 +27,8 @@ void connectBackgroundMessageHandler() {
       if (message != null) {
         switch (message) {
           case "stopBackgroundIsolate": {
-            debugPrint("Dart: stopBackgroundIsolate:SystemNavigator.pop()");
+            // debugPrint("Dart: stopBackgroundIsolate");
+            debugPrint("Dart: stopBackgroundIsolate: SystemNavigator.pop()");
             SystemNavigator.pop();
             // exit(0);
           }
@@ -105,7 +106,8 @@ class _MyAppState extends State<MyApp> {
             break;
           }
           case "stopMainIsolate": {
-            debugPrint("Dart: stopBackgroundIsolate:SystemNavigator.pop()");
+            // debugPrint("Dart: stopBackgroundIsolate)");
+            debugPrint("Dart: stopBackgroundIsolate: SystemNavigator.pop()");
             SystemNavigator.pop();
             // exit(0);
           }

@@ -33,7 +33,7 @@ dependencies:
 
   mailer:
   path_provider:
-  shared_preferences:
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   integration_test:
