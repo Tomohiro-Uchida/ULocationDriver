@@ -9,16 +9,8 @@ class ULocationDriver {
     return ULocationDriverPlatform.instance.registerBackgroundIsolate(arguments);
   }
 
-  Future<String?> startBackgroundIsolate() {
-    return ULocationDriverPlatform.instance.startBackgroundIsolate();
-  }
-
-  Future<String?> activateForeground() {
-    return ULocationDriverPlatform.instance.activateForeground();
-  }
-
-  Future<String?> activateBackground() {
-    return ULocationDriverPlatform.instance.activateBackground();
+  Future<String?> activate() {
+    return ULocationDriverPlatform.instance.activate();
   }
 
   Future<String?> inactivate() {

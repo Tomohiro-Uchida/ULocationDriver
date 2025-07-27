@@ -3,6 +3,7 @@ package com.jimdo.uchida001tmhr.u_location_driver
 import android.app.ForegroundServiceStartNotAllowedException
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.Activity
 import android.app.Service
 import android.app.ActivityManager
 import android.content.Intent
@@ -22,14 +23,16 @@ import androidx.core.app.ServiceCompat.startForeground
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.registerBackgroundIsolate
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.startBackgroundIsolate
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageLocation
-import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendBackground
-import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendForeground
+import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendActivate
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendInactivate
+import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.stopBackgroundIsolate
+import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.stopMainIsolate
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.backgroundDartExecutor
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.backgroundDartExecutor
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.eventSinkForeground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.eventSinkBackground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.flutterEngineBackground
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.myPackageName
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelNameBackground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelToForeground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelToBackground
@@ -55,9 +58,8 @@ import java.util.Locale
 
 class BackgroundLocationService : Service() {
   val serviceContext = this
-  // val sendNone = 1000
-  val sendToForeground = 2000
-  val sendToBackground = 3010
+  val sendToForeground = 1000
+  val sendToBackground = 1010
   var sendToDart = sendToForeground
   var callbackHandler = 0L
 
@@ -109,7 +111,7 @@ class BackgroundLocationService : Service() {
     val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
     val dateString = dateTimeFormatter.format(LocalDateTime.now())
     val message = "$dateString,${location?.latitude},${location?.longitude}"
-    println("BackgroundLocationService:  informLocationToDartForeground(): toDartChannelToForeground = $toDartChannelToForeground")
+    println("BackgroundLocationService: informLocationToDartForeground(): toDartChannelToForeground = $toDartChannelToForeground")
     if (toDartChannelToForeground != null) {
       toDartChannelToForeground?.send(message) { reply: String? ->
         println("BackgroundLocationService: Sent via toDartChannelToForeground -> $reply")
@@ -122,9 +124,29 @@ class BackgroundLocationService : Service() {
     val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
     val dateString = dateTimeFormatter.format(LocalDateTime.now())
     val message = "$dateString,${location?.latitude},${location?.longitude}"
-    println("BackgroundLocationService: informLocationToDartBackground(): toDartChannelToBackground = $toDartChannelToForeground")
+    println("BackgroundLocationService: informLocationToDartBackground(): toDartChannelToBackground = $toDartChannelToBackground")
     if (toDartChannelToBackground != null) {
       toDartChannelToBackground?.send(message) { reply: String? ->
+        println("BackgroundLocationService: Sent via toDartChannelToBackground -> $reply")
+      }
+    }
+  }
+
+  fun stopBackgroundIsolate() {
+    println("BackgroundLocationService: stopBackgroundIsolate() start : toDartChannelToBackground = $toDartChannelToBackground")
+    val message = "stopBackgroundIsolate"
+    if (toDartChannelToBackground != null) {
+      toDartChannelToBackground?.send(message) { reply: String? ->
+        println("BackgroundLocationService: Sent via toDartChannelToForeground -> $reply")
+      }
+    }
+  }
+
+  fun stopMainIsolate() {
+    println("BackgroundLocationService: stopMainIsolate() start : toDartChannelToForeground = $toDartChannelToForeground")
+    val message = "stopMainIsolate"
+    if (toDartChannelToForeground != null) {
+      toDartChannelToForeground?.send(message) { reply: String? ->
         println("BackgroundLocationService: Sent via toDartChannelToBackground -> $reply")
       }
     }
@@ -133,18 +155,28 @@ class BackgroundLocationService : Service() {
   inner class ServiceHandler(service: BackgroundLocationService) : Handler(Looper.getMainLooper()) {
 
     override fun handleMessage(msg: Message) {
+      println("BackgroundLocationService: handleMessage(${msg.what})")
       when (msg.what) {
         messageLocation -> {
+          val bundle: Bundle = msg.data
+          val _processInfo = getProcessInfo()
+          if (_processInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND ||
+            _processInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
+          ) {
+            println("BackgroundLocationService: sendToDart is connected to Foreground")
+            sendToDart = sendToForeground
+          } else {
+            println("BackgroundLocationService: sendToDart is connected to Background")
+            sendToDart = sendToBackground
+          }
           when (sendToDart) {
             sendToForeground -> {
               println("BackgroundLocationService: messageLocation -> sendToForeground")
-              val bundle: Bundle = msg.data
               informLocationToDartForeground(bundle.getParcelable("location", Location::class.java))
             }
 
             sendToBackground -> {
               println("BackgroundLocationService: messageLocation -> sendToBackground")
-              val bundle: Bundle = msg.data
               informLocationToDartBackground(bundle.getParcelable("location", Location::class.java))
             }
 
@@ -170,14 +202,14 @@ class BackgroundLocationService : Service() {
           }
         }
 
-        messageSendForeground -> {
-          println("BackgroundLocationService: sendToDart is connected to Foreground")
-          sendToDart = sendToForeground
+        stopBackgroundIsolate -> {
+          stopBackgroundIsolate()
+          println("BackgroundLocationService: end : stopBackgroundIsolate")
         }
 
-        messageSendBackground -> {
-          println("BackgroundLocationService: sendToDart is connected to Background")
-          sendToDart = sendToBackground
+        stopMainIsolate -> {
+          stopMainIsolate()
+          println("BackgroundLocationService: end : stopMainIsolate")
         }
 
         messageSendInactivate -> {
@@ -194,6 +226,18 @@ class BackgroundLocationService : Service() {
         }
       }
     }
+
+    fun getProcessInfo(): ActivityManager.RunningAppProcessInfo? {
+      val activityManager = serviceContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+      val runningAppProcessInfoList = activityManager.runningAppProcesses
+      for (processInfo in runningAppProcessInfoList) {
+        if (processInfo.processName == myPackageName) {
+          return processInfo
+        }
+      }
+      return null
+    }
+
   }
 
   override fun onCreate() {

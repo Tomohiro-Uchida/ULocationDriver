@@ -10,31 +10,19 @@ class MockULocationDriverPlatform
     implements ULocationDriverPlatform {
 
   @override
-  Future<String?> activateBackground() {
-    // TODO: implement activateBackground
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> inactivate() {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> activateForeground({HashMap<String, dynamic>? arguments}) {
-    // TODO: implement activateForeground
-    throw UnimplementedError();
-  }
-
-  @override
   Future<String?> registerBackgroundIsolate(HashMap<String, dynamic>? arguments) {
     // TODO: implement registerBackgroundIsolate
     throw UnimplementedError();
   }
 
   @override
-  Future<String?> startBackgroundIsolate() {
-    // TODO: implement startBackgroundIsolate
+  Future<String?> activate() {
+    // TODO: implement activate
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String?> inactivate() {
     throw UnimplementedError();
   }
 

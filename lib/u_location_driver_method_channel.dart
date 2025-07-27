@@ -18,25 +18,9 @@ class MethodChannelULocationDriver extends ULocationDriverPlatform {
   }
 
   @override
-  Future<String?> startBackgroundIsolate() async {
+  Future<String?> activate() async {
     String? result = "";
-    result = await methodChannel.invokeMethod<String>("startBackgroundIsolate");
-    return result;
-  }
-
-  @override
-  Future<String?> activateForeground() async {
-    String? result = "";
-    result = await methodChannel.invokeMethod<String>("activateForeground");
-    return result;
-  }
-
-  @override
-  Future<String?> activateBackground() async {
-    final result = await methodChannel.invokeMethod<String>("activateBackground");
-    Future.delayed(Duration(milliseconds: 1000), () {
-      SystemNavigator.pop();
-    });
+    result = await methodChannel.invokeMethod<String>("activate");
     return result;
   }
 

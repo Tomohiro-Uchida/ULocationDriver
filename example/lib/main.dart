@@ -25,8 +25,21 @@ void connectBackgroundMessageHandler() {
     toDartChannelBackgroundAndroid?.setMessageHandler((message) async {
       debugPrint("Dart: received message in background isolate: $message");
       if (message != null) {
-        SendToHost sendToHost = SendToHost();
-        sendToHost.send(message);
+        switch (message) {
+          case "stopBackgroundIsolate": {
+            debugPrint("Dart: stopBackgroundIsolate:SystemNavigator.pop()");
+            // SystemNavigator.pop();
+            exit(0);
+          }
+          case "stopMainIsolate": {
+            break;
+          }
+          default: {
+            SendToHost sendToHost = SendToHost();
+            sendToHost.send(message);
+            break;
+          }
+        }
       }
       return "ACK";
     });
@@ -42,6 +55,8 @@ void backgroundEntryPoint() async {
     // 少し遅延してから登録（これがポイント）
     await Future.delayed(const Duration(milliseconds: 500));
     connectBackgroundMessageHandler();
+    final uLocationDriverPlugin = ULocationDriver();
+    uLocationDriverPlugin.activate();
   }
 }
 
@@ -82,11 +97,24 @@ class _MyAppState extends State<MyApp> {
     toDartChannelForeground.setMessageHandler((message) async {
       debugPrint("Dart: received message in main isolate: $message");
       if (message != null) {
-        setState(() {
-          messageFromNative = message;
-        });
-        SendToHost sendToHost = SendToHost();
-        sendToHost.send(message);
+        switch (message) {
+          case "stopBackgroundIsolate": {
+            break;
+          }
+          case "stopMainIsolate": {
+            debugPrint("Dart: stopBackgroundIsolate:SystemNavigator.pop()");
+            // SystemNavigator.pop();
+            exit(0);
+          }
+          default: {
+            setState(() {
+              messageFromNative = message;
+            });
+            SendToHost sendToHost = SendToHost();
+            sendToHost.send(message);
+            break;
+          }
+        }
       }
       return ("ACK");
     });
@@ -99,7 +127,7 @@ class _MyAppState extends State<MyApp> {
         HashMap<String, dynamic> arguments = HashMap();
         arguments.addAll({"callbackHandle": callbackHandle.toRawHandle()});
         await uLocationDriverPlugin.registerBackgroundIsolate(arguments);
-        debugPrint("Dart: registerBackgroundIsolate");
+        debugPrint("Dart: registerBackgroundIsolate: end");
       }
     }
     return;
@@ -116,19 +144,12 @@ class _MyAppState extends State<MyApp> {
       },
       onResume: () async {
         debugPrint("Dart: onResume()");
-        connectForegroundMassageHandler();
-        await uLocationDriverPlugin.activateForeground();
       },
       onHide: () {
         debugPrint("Dart: onHide()");
       },
       onInactive: () async {
         debugPrint("Dart: onInactive()");
-        if (Platform.isAndroid) {
-          await registerBackgroundIsolate();
-          await uLocationDriverPlugin.startBackgroundIsolate();
-        }
-        await uLocationDriverPlugin.activateBackground();
       },
       onPause: () {
         debugPrint("Dart: onPause()");
@@ -141,6 +162,7 @@ class _MyAppState extends State<MyApp> {
       },
     );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      registerBackgroundIsolate();
       SharedPreferences.getInstance().then((prefs) {
         this.prefs = prefs;
         String? username = prefs.getString("fromAddress");
@@ -208,8 +230,8 @@ class _MyAppState extends State<MyApp> {
               TextButton(
                 onPressed: (() {
                   connectForegroundMassageHandler();
-                  uLocationDriverPlugin.activateForeground();
-                  debugPrint("Dart: activateForeground");
+                  uLocationDriverPlugin.activate();
+                  debugPrint("Dart: activate");
                 }),
                 child: Text("Activate"),
               ),
