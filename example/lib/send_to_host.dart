@@ -6,7 +6,6 @@ import 'package:mailer/smtp_server.dart';
 import 'package:shared_preferences/shared_preferences.dart' as preferences;
 
 class SendToHost {
-  static late mailer.PersistentConnection connection;
 
   send(String message) async {
     preferences.SharedPreferences prefs = await preferences.SharedPreferences.getInstance();
@@ -23,7 +22,7 @@ class SendToHost {
       if (Platform.isIOS) {
         smtpServer = SmtpServer("smtp.mail.me.com", port: 587, ssl: false, username: username, password: password);
       } else {
-        smtpServer = SmtpServer("smtp.gmail.com", port: 587, ssl: false, username: username, password: password);
+        smtpServer = SmtpServer("smtp.gmail.com", port: 465, ssl: true, username: username, password: password);
       }
       final mailMessage = mailer.Message()
         ..from = mailer.Address(username, '')
@@ -31,11 +30,8 @@ class SendToHost {
         ..subject = "Message from Native"
         ..text = "Message from Native: $message";
       try {
-        // await mailer.send(mailMessage, smtpServer);
-        connection = mailer.PersistentConnection(smtpServer, timeout: Duration(milliseconds: 5 * 1000));
-        await connection.send(mailMessage);
-        await connection.close();
-      } catch (e) {
+         // await mailer.send(mailMessage, smtpServer);
+      } on mailer.MailerException catch (e) {
         debugPrint(e.toString());
       }
     }

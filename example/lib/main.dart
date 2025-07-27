@@ -46,6 +46,8 @@ void connectBackgroundMessageHandler() {
   }
 }
 
+class MyHttpOverrides extends HttpOverrides {}
+
 @pragma('vm:entry-point')
 void backgroundEntryPoint() async {
   if (Platform.isAndroid) {
@@ -54,6 +56,7 @@ void backgroundEntryPoint() async {
     WidgetsFlutterBinding.ensureInitialized();
     // 少し遅延してから登録（これがポイント）
     await Future.delayed(const Duration(milliseconds: 500));
+
     connectBackgroundMessageHandler();
     final uLocationDriverPlugin = ULocationDriver();
     uLocationDriverPlugin.activate();

@@ -130,18 +130,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     var fusedLocationClients = mutableListOf<FusedLocationProviderClient>()
     private var isMainIsolateRunning = true
 
-    val locationCallback: LocationCallback = object : LocationCallback() {
-      override fun onLocationResult(locationResult: LocationResult) {
-        Handler(Looper.getMainLooper()).post {
-          // ここにUIスレッドで実行したいコードを書く
-          println("ULocationDriverPlugin: onLocationResult()")
-          val messageFromPluginToService = MessageFromPluginToService()
-          messageFromPluginToService.messageType = MessageFromPluginToService.messageLocation
-          messageFromPluginToService.message = locationResult.lastLocation!!
-          messageFromPluginToService.sendMessageToService()
-        }
-      }
-    }
   }
 
   private fun getNotficationPermissionLocation() {
@@ -184,13 +172,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         toDartChannelNameForeground,
         StringCodec.INSTANCE
       )
-      /*
-      Handler(Looper.getMainLooper()).post() {
-        val messageFromPluginToService = MessageFromPluginToService()
-        messageFromPluginToService.messageType = MessageFromPluginToService.stopBackgroundIsolate
-        messageFromPluginToService.sendMessageToService()
-      }
-       */
       println("ULocationDriverPlugin: onAttachedToEngine(): end : toDartChannelToForeground = $toDartChannelToForeground")
     } else {
       toDartChannelToBackground = BasicMessageChannel(
@@ -198,13 +179,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         toDartChannelNameBackground,
         StringCodec.INSTANCE
       )
-      /*
-      Handler(Looper.getMainLooper()).post() {
-        val messageFromPluginToService = MessageFromPluginToService()
-        messageFromPluginToService.messageType = MessageFromPluginToService.stopMainIsolate
-        messageFromPluginToService.sendMessageToService()
-      }
-       */
       println("ULocationDriverPlugin: onAttachedToEngine(): end : toDartChannelToBackground = $toDartChannelToBackground")
     }
   }
@@ -305,13 +279,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       }
 
       "activate" -> {
-        /*
-        Handler(Looper.getMainLooper()).post {
-          val messageFromPluginToService = MessageFromPluginToService()
-          messageFromPluginToService.messageType = MessageFromPluginToService.messageSendActivate
-          messageFromPluginToService.sendMessageToService()
-        }
-         */
         getNotficationPermissionLocation()
         result.success("success")
       }
@@ -344,7 +311,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   @RequiresPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
-  private fun requestDeviceLocation() {
+  fun requestDeviceLocation() {
     val permissionFineLocation = ContextCompat.checkSelfPermission(
       thisContext.applicationContext,
       Manifest.permission.ACCESS_FINE_LOCATION
@@ -362,23 +329,25 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
   }
 
-  fun getProcessInfo(): ActivityManager.RunningAppProcessInfo? {
-    val activityManager = thisContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-    val runningAppProcessInfoList = activityManager.runningAppProcesses
-    for (processInfo in runningAppProcessInfoList) {
-      if (processInfo.processName == myPackageName) {
-        return processInfo
+  val locationCallback: LocationCallback = object : LocationCallback() {
+    override fun onLocationResult(locationResult: LocationResult) {
+      Handler(Looper.getMainLooper()).post {
+        // ここにUIスレッドで実行したいコードを書く
+        println("ULocationDriverPlugin: onLocationResult()")
+        val messageFromPluginToService = MessageFromPluginToService()
+        messageFromPluginToService.messageType = MessageFromPluginToService.messageLocation
+        messageFromPluginToService.message = locationResult.lastLocation!!
+        messageFromPluginToService.sendMessageToService()
       }
     }
-    return null
   }
 
   @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-  private fun startLocationUpdates() {
+  fun startLocationUpdates() {
     fusedLocationClients.forEach { it ->
       it.requestLocationUpdates(
-        LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 30 * 1000 /*30秒*/)
-          .setMinUpdateIntervalMillis(10 * 1000 /*10秒*/)
+        LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 10 * 1000 /*10秒*/)
+          .setMinUpdateIntervalMillis(5 * 1000 /*5秒*/)
           .build(), locationCallback, Looper.getMainLooper()
       )
     }

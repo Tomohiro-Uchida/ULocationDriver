@@ -253,7 +253,10 @@ class BackgroundLocationService : Service() {
         NotificationChannel(serviceChannelId, serviceChannelName, NotificationManager.IMPORTANCE_DEFAULT)
       val notificationManager = applicationContext.getSystemService(NotificationManager::class.java)
       notificationManager.createNotificationChannel(notificationChannel)
-      val notification = NotificationCompat.Builder(this, serviceChannelId).build()
+      val notification = NotificationCompat.Builder(this, serviceChannelId)
+        .setContentTitle("Serves Location")
+        .setContentText("Serving location update...")
+        .build()
       startForeground(
         /* service = */ this,
         /* id = */ notificationId, // Cannot be 0
