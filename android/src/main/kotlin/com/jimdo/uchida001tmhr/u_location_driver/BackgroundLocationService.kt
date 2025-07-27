@@ -8,8 +8,12 @@ import android.app.Service
 import android.app.ActivityManager
 import android.content.Intent
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.location.Location
+import android.Manifest
+import android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -17,12 +21,20 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Message
 import android.os.Messenger
+import androidx.annotation.RequiresPermission
 import androidx.compose.ui.window.application
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat.startForeground
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.registerBackgroundIsolate
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.startBackgroundIsolate
-import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageLocation
+import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageStartLocation
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendActivate
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendInactivate
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.stopBackgroundIsolate
@@ -33,6 +45,8 @@ import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.eventSinkBackground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.flutterEngineBackground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.myPackageName
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.thisActivity
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.thisContext
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelNameBackground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelToForeground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelToBackground
@@ -62,6 +76,7 @@ class BackgroundLocationService : Service() {
   val sendToBackground = 1010
   var sendToDart = sendToForeground
   var callbackHandler = 0L
+  var fusedLocationClients = mutableListOf<FusedLocationProviderClient>()
 
   override fun onBind(intent: Intent): IBinder {
     println("BackgroundLocationService: onBind()")
@@ -152,40 +167,90 @@ class BackgroundLocationService : Service() {
     }
   }
 
+  @RequiresPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+  fun requestDeviceLocation() {
+    val permissionFineLocation = ContextCompat.checkSelfPermission(
+      thisContext.applicationContext,
+      Manifest.permission.ACCESS_FINE_LOCATION
+    )
+    val permissionBackgroundLocation = ContextCompat.checkSelfPermission(
+      thisContext.applicationContext,
+      Manifest.permission.ACCESS_BACKGROUND_LOCATION
+    )
+    if (permissionFineLocation == PackageManager.PERMISSION_GRANTED &&
+      permissionBackgroundLocation == PackageManager.PERMISSION_GRANTED
+    ) {
+      stopLocationUpdates()
+      fusedLocationClients.add(LocationServices.getFusedLocationProviderClient(thisActivity))
+      startLocationUpdates()
+    }
+  }
+
+  fun getProcessInfo(): ActivityManager.RunningAppProcessInfo? {
+    val activityManager = serviceContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    val runningAppProcessInfoList = activityManager.runningAppProcesses
+    for (processInfo in runningAppProcessInfoList) {
+      if (processInfo.processName == myPackageName) {
+        return processInfo
+      }
+    }
+    return null
+  }
+
+  val locationCallback: LocationCallback = object : LocationCallback() {
+    override fun onLocationResult(locationResult: LocationResult) {
+      println("ULocationDriverPlugin: onLocationResult()")
+      val _processInfo = getProcessInfo()
+      if (_processInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND ||
+        _processInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
+      ) {
+        println("BackgroundLocationService: sendToDart is connected to Foreground")
+        sendToDart = sendToForeground
+      } else {
+        println("BackgroundLocationService: sendToDart is connected to Background")
+        sendToDart = sendToBackground
+      }
+      when (sendToDart) {
+        sendToForeground -> {
+          println("BackgroundLocationService: messageLocation -> sendToForeground")
+          informLocationToDartForeground(locationResult.lastLocation!!)
+        }
+
+        sendToBackground -> {
+          println("BackgroundLocationService: messageLocation -> sendToBackground")
+          informLocationToDartBackground(locationResult.lastLocation!!)
+        }
+
+        else -> {
+          println("BackgroundLocationService: messageLocation -> else")
+        }
+      }
+    }
+  }
+
+  @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+  fun startLocationUpdates() {
+    fusedLocationClients.forEach { it ->
+      it.requestLocationUpdates(
+        LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 10 * 1000 /*10秒*/)
+          .setMinUpdateIntervalMillis(5 * 1000 /*5秒*/)
+          .build(), locationCallback, Looper.getMainLooper()
+      )
+    }
+  }
+
+  fun stopLocationUpdates() {
+    fusedLocationClients.forEach { it ->
+      it.removeLocationUpdates(locationCallback)
+    }
+    fusedLocationClients.clear()
+  }
+
   inner class ServiceHandler(service: BackgroundLocationService) : Handler(Looper.getMainLooper()) {
 
     override fun handleMessage(msg: Message) {
       println("BackgroundLocationService: handleMessage(${msg.what})")
       when (msg.what) {
-        messageLocation -> {
-          val bundle: Bundle = msg.data
-          val _processInfo = getProcessInfo()
-          if (_processInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND ||
-            _processInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
-          ) {
-            println("BackgroundLocationService: sendToDart is connected to Foreground")
-            sendToDart = sendToForeground
-          } else {
-            println("BackgroundLocationService: sendToDart is connected to Background")
-            sendToDart = sendToBackground
-          }
-          when (sendToDart) {
-            sendToForeground -> {
-              println("BackgroundLocationService: messageLocation -> sendToForeground")
-              informLocationToDartForeground(bundle.getParcelable("location", Location::class.java))
-            }
-
-            sendToBackground -> {
-              println("BackgroundLocationService: messageLocation -> sendToBackground")
-              informLocationToDartBackground(bundle.getParcelable("location", Location::class.java))
-            }
-
-            else -> {
-              println("BackgroundLocationService: messageLocation -> else")
-            }
-          }
-        }
-
         registerBackgroundIsolate -> {
           println("BackgroundLocationService: registerBackgroundIsolate: msg.data = ${msg.data}")
           if (msg.data != null) {
@@ -221,21 +286,15 @@ class BackgroundLocationService : Service() {
           }
           println("BackgroundLocationService: messageSendInactivate -> flutterEngineBackground.destroy()")
           val uLocationDriverPlugin = ULocationDriverPlugin()
-          uLocationDriverPlugin.stopLocationUpdates()
+          stopLocationUpdates()
           println("BackgroundLocationService: messageSendInactivate -> uLocationDriverPlugin.stopLocationUpdates()")
         }
-      }
-    }
 
-    fun getProcessInfo(): ActivityManager.RunningAppProcessInfo? {
-      val activityManager = serviceContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-      val runningAppProcessInfoList = activityManager.runningAppProcesses
-      for (processInfo in runningAppProcessInfoList) {
-        if (processInfo.processName == myPackageName) {
-          return processInfo
+        messageStartLocation -> {
+          requestDeviceLocation()
+          println("BackgroundLocationService: end : requestDeviceLocation")
         }
       }
-      return null
     }
 
   }
@@ -277,7 +336,7 @@ class BackgroundLocationService : Service() {
     println("BackgroundLocationService: BackgroundLocationService was destroyed!");
     flutterEngineBackground?.destroy()
     val uLocationDriverPlugin = ULocationDriverPlugin()
-    uLocationDriverPlugin.stopLocationUpdates()
+    stopLocationUpdates()
     super.onDestroy()
   }
 
