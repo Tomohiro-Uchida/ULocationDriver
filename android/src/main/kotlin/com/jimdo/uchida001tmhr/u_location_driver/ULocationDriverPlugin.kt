@@ -87,12 +87,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
       serviceMessenger = Messenger(binder)
       println("ULocationDriverPlugin: onServiceConnected() -> serviceMessenger = $serviceMessenger")
-      Handler(Looper.getMainLooper()).post {
-        val messageFromPluginToServiceStop = MessageFromPluginToService()
-        messageFromPluginToServiceStop.messageType = MessageFromPluginToService.stopBackgroundIsolate
-        messageFromPluginToServiceStop.sendMessageToService()
-      }
-      // isMainIsolateRunning = true
     }
 
     override fun onServiceDisconnected(name: ComponentName?) {
@@ -160,13 +154,20 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     binaryMessengerToDart = flutterPluginBinding.binaryMessenger
     println("ULocationDriverPlugin: onAttachedToEngine(): isMainIsolateRunning = $isMainIsolateRunning")
     if (isMainIsolateRunning) {
+      // Stop Background Isolate
+      val messageFromPluginToServiceStop = MessageFromPluginToService()
+      println("ULocationDriverPlugin: onAttachedToEngine(): stopBackgroundIsolate")
+      messageFromPluginToServiceStop.messageType = MessageFromPluginToService.stopBackgroundIsolate
+      messageFromPluginToServiceStop.sendMessageToService()
+      // Stop Background Location Setvice
+      println("ULocationDriverPlugin: onAttachedToEngine(): stopService()")
       intentToService = Intent(thisContext, BackgroundLocationService::class.java)
       intentToService?.setClassName(
         thisContext.packageName,
         "com.jimdo.uchida001tmhr.u_location_driver.BackgroundLocationService"
       )
       thisContext.stopService(intentToService)
-
+      // Build Message Channel to Foreground
       toDartChannelToForeground = BasicMessageChannel(
         binaryMessengerToDart!!,
         toDartChannelNameForeground,
@@ -175,6 +176,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       println("ULocationDriverPlugin: onAttachedToEngine(): end : toDartChannelToForeground = $toDartChannelToForeground")
       isMainIsolateRunning = true
     } else {
+      // Build Message Channel to Background
       toDartChannelToBackground = BasicMessageChannel(
         binaryMessengerToDart!!,
         toDartChannelNameBackground,

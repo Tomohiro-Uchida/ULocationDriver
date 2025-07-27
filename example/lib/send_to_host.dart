@@ -30,7 +30,7 @@ class SendToHost {
         ..subject = "Message from Native"
         ..text = "Message from Native: $message";
       try {
-         // await mailer.send(mailMessage, smtpServer);
+         await mailer.send(mailMessage, smtpServer);
       } on mailer.MailerException catch (e) {
         debugPrint(e.toString());
       }
