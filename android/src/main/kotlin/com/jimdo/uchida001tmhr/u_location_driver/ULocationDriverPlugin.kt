@@ -12,7 +12,6 @@ import android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
 import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.Manifest.permission.POST_NOTIFICATIONS
 import android.annotation.SuppressLint
-import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -22,7 +21,6 @@ import android.os.RemoteException
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageServiceToPlugin
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.activityMessenger
@@ -104,8 +102,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     @SuppressLint("StaticFieldLeak")
     lateinit var thisContext: Context
     val fromDartChannelName = "com.jimdo.uchida001tmhr.u_location_driver/fromDart"
-    val toDartChannelNameForeground = "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground"
-    val toDartChannelNameBackground = "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground"
+    val toDartChannelName = "com.jimdo.uchida001tmhr.u_location_driver/toDart"
     var attachCount = 0
     var toDartChannel: BasicMessageChannel<String>? = null
     var binaryMessengerToDart: BinaryMessenger? = null
@@ -172,22 +169,14 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       )
       thisContext.stopService(intentToService)
       // Build Message Channel to Foreground
-      toDartChannel = BasicMessageChannel(
-        binaryMessengerToDart!!,
-        toDartChannelNameForeground,
-        StringCodec.INSTANCE
-      )
-      println("ULocationDriverPlugin: onAttachedToEngine(): end : toDartChannelToForeground = $toDartChannel")
       isMainIsolateRunning = true
-    } else {
-      // Build Message Channel to Background
-      toDartChannel = BasicMessageChannel(
-        binaryMessengerToDart!!,
-        toDartChannelNameBackground,
-        StringCodec.INSTANCE
-      )
-      println("ULocationDriverPlugin: onAttachedToEngine(): end : toDartChannelToBackground = $toDartChannel")
     }
+    toDartChannel = BasicMessageChannel(
+      binaryMessengerToDart!!,
+      toDartChannelName,
+      StringCodec.INSTANCE
+    )
+    println("ULocationDriverPlugin: onAttachedToEngine(): end : toDartChannelToForeground = $toDartChannel")
   }
 
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {

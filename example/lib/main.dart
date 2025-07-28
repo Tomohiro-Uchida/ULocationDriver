@@ -11,18 +11,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:u_location_driver/u_location_driver.dart';
 import 'package:u_location_driver_example/send_to_host.dart';
 
-BasicMessageChannel<String>? toDartChannelBackgroundAndroid;
+BasicMessageChannel<String>? toDartChannel;
 
 void connectBackgroundMessageHandler() {
   if (Platform.isAndroid) {
     final messenger = ServicesBinding.instance.defaultBinaryMessenger;
-    toDartChannelBackgroundAndroid = BasicMessageChannel(
-      "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground",
+    toDartChannel = BasicMessageChannel(
+      "com.jimdo.uchida001tmhr.u_location_driver/toDart",
       StringCodec(),
       binaryMessenger: messenger,
     );
     debugPrint("Dart: registering handler for toDartChannelBackground");
-    toDartChannelBackgroundAndroid?.setMessageHandler((message) async {
+    toDartChannel?.setMessageHandler((message) async {
       debugPrint("Dart: received message in background isolate: $message");
       if (message != null) {
         switch (message) {
@@ -82,7 +82,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final uLocationDriverPlugin = ULocationDriver();
-  late BasicMessageChannel toDartChannelForeground;
+  late BasicMessageChannel toDartChannel;
   String messageFromNative = "Waiting for message form Native ...";
   TextEditingController textEditingControllerFrom = TextEditingController();
   TextEditingController textEditingControllerPassword = TextEditingController();
@@ -94,12 +94,12 @@ class _MyAppState extends State<MyApp> {
 
   void connectForegroundMassageHandler() {
     final messenger = ServicesBinding.instance.defaultBinaryMessenger;
-    toDartChannelForeground = BasicMessageChannel(
-      "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground",
+    toDartChannel = BasicMessageChannel(
+      "com.jimdo.uchida001tmhr.u_location_driver/toDart",
       StringCodec(),
       binaryMessenger: messenger,
     );
-    toDartChannelForeground.setMessageHandler((message) async {
+    toDartChannel.setMessageHandler((message) async {
       debugPrint("Dart: received message in main isolate: $message");
       if (message != null) {
         switch (message) {

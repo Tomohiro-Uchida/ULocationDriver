@@ -37,8 +37,8 @@ import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Comp
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.flutterEngineBackground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.myPackageName
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.thisContext
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelNameBackground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannel
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelName
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.loader.FlutterLoader
 import io.flutter.embedding.engine.dart.DartExecutor
@@ -95,7 +95,7 @@ class BackgroundLocationService : Service() {
     // BasicMessageChannel 経由の通信チャネルをセットアップ
     toDartChannel = BasicMessageChannel(
       flutterEngineBackground!!.dartExecutor.binaryMessenger,
-      toDartChannelNameBackground,
+      toDartChannelName,
       StringCodec.INSTANCE
     )
 
