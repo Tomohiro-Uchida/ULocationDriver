@@ -21,6 +21,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Message
 import android.os.Messenger
+import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.compose.ui.window.application
 import androidx.core.app.NotificationCompat
@@ -35,14 +36,9 @@ import com.google.android.gms.location.Priority
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.registerBackgroundIsolate
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.startBackgroundIsolate
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageStartLocation
-import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendActivate
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageSendInactivate
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.stopBackgroundIsolate
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.stopMainIsolate
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.backgroundDartExecutor
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.backgroundDartExecutor
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.eventSinkForeground
-import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.eventSinkBackground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.flutterEngineBackground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.myPackageName
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.thisActivity
@@ -51,17 +47,9 @@ import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelToForeground
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.toDartChannelToBackground
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.embedding.engine.FlutterJNI
 import io.flutter.embedding.engine.loader.FlutterLoader
-import io.flutter.embedding.engine.plugins.FlutterPlugin
-import io.flutter.embedding.engine.plugins.activity.ActivityAware
-import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.embedding.engine.dart.DartExecutor.DartEntrypoint
-import io.flutter.plugin.common.MethodCall
-import io.flutter.plugin.common.MethodChannel
-import io.flutter.plugin.common.MethodChannel.MethodCallHandler
-import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.BasicMessageChannel
 import io.flutter.plugin.common.StringCodec
 import io.flutter.view.FlutterCallbackInformation
@@ -181,7 +169,7 @@ class BackgroundLocationService : Service() {
       permissionBackgroundLocation == PackageManager.PERMISSION_GRANTED
     ) {
       stopLocationUpdates()
-      fusedLocationClients.add(LocationServices.getFusedLocationProviderClient(thisActivity))
+      fusedLocationClients.add(LocationServices.getFusedLocationProviderClient(serviceContext))
       startLocationUpdates()
     }
   }
@@ -303,6 +291,7 @@ class BackgroundLocationService : Service() {
     super.onCreate()
   }
 
+  @RequiresApi(Build.VERSION_CODES.S)
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     val serviceChannelId = "LocationServiceChannel"
     val serviceChannelName = "Location Channel"

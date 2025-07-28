@@ -22,7 +22,7 @@ class SendToHost {
       if (Platform.isIOS) {
         smtpServer = SmtpServer("smtp.mail.me.com", port: 587, ssl: false, username: username, password: password);
       } else {
-        smtpServer = SmtpServer("smtp.gmail.com", port: 465, ssl: true, username: username, password: password);
+        smtpServer = SmtpServer("smtp.gmail.com", port: 587, ssl: false, username: username, password: password);
       }
       final mailMessage = mailer.Message()
         ..from = mailer.Address(username, '')

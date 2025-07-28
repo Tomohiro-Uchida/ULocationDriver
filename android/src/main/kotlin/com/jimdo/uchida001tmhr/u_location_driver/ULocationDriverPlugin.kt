@@ -11,6 +11,7 @@ import android.content.ServiceConnection
 import android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
 import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.Manifest.permission.POST_NOTIFICATIONS
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -20,6 +21,7 @@ import android.os.RemoteException
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.messageServiceToPlugin
 import com.jimdo.uchida001tmhr.u_location_driver.MessageFromPluginToService.Companion.activityMessenger
@@ -115,6 +117,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
   }
 
+  @RequiresApi(Build.VERSION_CODES.TIRAMISU)
   private fun getNotficationPermissionLocation() {
     val permissionPostNotification = ContextCompat.checkSelfPermission(thisContext, POST_NOTIFICATIONS)
     if (permissionPostNotification == PackageManager.PERMISSION_GRANTED) {

@@ -163,10 +163,10 @@ packages:
     dependency: "direct main"
     description:
       name: mailer
-      sha256: c6ae65c1d40cfe9c06fa50ff9be6c1cfb18cca60a7bb935e318163bd7f1f0d17
+      sha256: db61f51ea301e8dcbfe5894e037ccd30a6246eb0a7bcfa007aefa2fc11a8f96e
       url: "https://pub.dev"
     source: hosted
-    version: "6.4.1"
+    version: "6.5.0"
   matcher:
     dependency: transitive
     description:
