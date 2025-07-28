@@ -11,6 +11,7 @@ import android.content.ServiceConnection
 import android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
 import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.Manifest.permission.POST_NOTIFICATIONS
+import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -50,7 +51,7 @@ class MessageFromPluginToService {
     val stopBackgroundIsolate = 1020
     val stopMainIsolate = 1030
     val messageStartLocation = 2000
-    val messageSendActivate = 3000
+    // val messageSendActivate = 3000
     val messageSendInactivate = 3020
     val messageServiceToPlugin = 4000
     var serviceMessenger: Messenger? = null
@@ -98,14 +99,15 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   companion object {
+    @SuppressLint("StaticFieldLeak")
     lateinit var thisActivity: Activity
+    @SuppressLint("StaticFieldLeak")
     lateinit var thisContext: Context
     val fromDartChannelName = "com.jimdo.uchida001tmhr.u_location_driver/fromDart"
     val toDartChannelNameForeground = "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground"
     val toDartChannelNameBackground = "com.jimdo.uchida001tmhr.u_location_driver/toDartBackground"
     var attachCount = 0
-    var toDartChannelToForeground: BasicMessageChannel<String>? = null
-    var toDartChannelToBackground: BasicMessageChannel<String>? = null
+    var toDartChannel: BasicMessageChannel<String>? = null
     var binaryMessengerToDart: BinaryMessenger? = null
     var myPackageName: String? = ""
     var backgroundFlutterEngine: FlutterEngine? = null
@@ -117,7 +119,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
   }
 
-  @RequiresApi(Build.VERSION_CODES.TIRAMISU)
   private fun getNotficationPermissionLocation() {
     val permissionPostNotification = ContextCompat.checkSelfPermission(thisContext, POST_NOTIFICATIONS)
     if (permissionPostNotification == PackageManager.PERMISSION_GRANTED) {
@@ -171,21 +172,21 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       )
       thisContext.stopService(intentToService)
       // Build Message Channel to Foreground
-      toDartChannelToForeground = BasicMessageChannel(
+      toDartChannel = BasicMessageChannel(
         binaryMessengerToDart!!,
         toDartChannelNameForeground,
         StringCodec.INSTANCE
       )
-      println("ULocationDriverPlugin: onAttachedToEngine(): end : toDartChannelToForeground = $toDartChannelToForeground")
+      println("ULocationDriverPlugin: onAttachedToEngine(): end : toDartChannelToForeground = $toDartChannel")
       isMainIsolateRunning = true
     } else {
       // Build Message Channel to Background
-      toDartChannelToBackground = BasicMessageChannel(
+      toDartChannel = BasicMessageChannel(
         binaryMessengerToDart!!,
         toDartChannelNameBackground,
         StringCodec.INSTANCE
       )
-      println("ULocationDriverPlugin: onAttachedToEngine(): end : toDartChannelToBackground = $toDartChannelToBackground")
+      println("ULocationDriverPlugin: onAttachedToEngine(): end : toDartChannelToBackground = $toDartChannel")
     }
   }
 
