@@ -112,7 +112,10 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     lateinit var eventSinkForeground: EventChannel.EventSink
     lateinit var eventSinkBackground: EventChannel.EventSink
     var flutterEngineBackground: FlutterEngine? = null
-    private var isMainIsolateRunning = true
+    private val noIsolateRunning = 1
+    private val mainIsolateRunning = 2
+    private val backgroundIsolateRunning = 3
+    private var runningIsolate = noIsolateRunning
 
   }
 
@@ -153,8 +156,8 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     fromDartChannel.setMethodCallHandler(this)
     thisContext = flutterPluginBinding.applicationContext
     binaryMessengerToDart = flutterPluginBinding.binaryMessenger
-    println("ULocationDriverPlugin: onAttachedToEngine(): isMainIsolateRunning = $isMainIsolateRunning")
-    if (isMainIsolateRunning) {
+    println("ULocationDriverPlugin: onAttachedToEngine(): runningIsolate = $runningIsolate")
+    if (runningIsolate != mainIsolateRunning) {
       // Stop Background Isolate
       val messageFromPluginToServiceStop = MessageFromPluginToService()
       println("ULocationDriverPlugin: onAttachedToEngine(): stopBackgroundIsolate")
@@ -169,7 +172,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       )
       thisContext.stopService(intentToService)
       // Build Message Channel to Foreground
-      isMainIsolateRunning = true
+      runningIsolate = mainIsolateRunning
     }
     toDartChannel = BasicMessageChannel(
       binaryMessengerToDart!!,
@@ -218,8 +221,8 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-    println("ULocationDriverPlugin: onDetachedFromEngine(): Start : isMainIsolateRunning = $isMainIsolateRunning")
-    if (isMainIsolateRunning) {
+    println("ULocationDriverPlugin: onDetachedFromEngine(): Start : runnigIsolate = $runningIsolate")
+    if (runningIsolate == mainIsolateRunning) {
       Handler(Looper.getMainLooper()).post {
         val messageFromPluginToServiceStop = MessageFromPluginToService()
         messageFromPluginToServiceStop.messageType = MessageFromPluginToService.stopMainIsolate
@@ -230,10 +233,9 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         messageFromPluginToServiceStart.messageType = MessageFromPluginToService.startBackgroundIsolate
         messageFromPluginToServiceStart.sendMessageToService()
       }
-      isMainIsolateRunning = false
-    } else {
+      runningIsolate = backgroundIsolateRunning
     }
-    println("ULocationDriverPlugin: onDetachedFromEngine(): end")
+    println("ULocationDriverPlugin: onDetachedFromEngine(): end : runnigIsolate = $runningIsolate")
   }
 
   override fun onDetachedFromActivity() {
