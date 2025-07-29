@@ -99,11 +99,12 @@ class _MyAppState extends State<MyApp> {
       if (message != null) {
         switch (message) {
           case "stopBackgroundIsolate": {
-            break;
           }
           case "stopMainIsolate": {
-            debugPrint("Dart: stopMainIsolate: SystemNavigator.pop()");
-            SystemNavigator.pop();
+            if (Platform.isAndroid) {
+              debugPrint("Dart: stopMainIsolate: SystemNavigator.pop()");
+              SystemNavigator.pop();
+            }
           }
           default: {
             setState(() {

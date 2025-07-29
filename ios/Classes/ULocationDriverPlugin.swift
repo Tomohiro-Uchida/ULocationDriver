@@ -3,43 +3,44 @@ import UIKit
 import CoreLocation
 import SwiftUI
 
+let inactive = 0
+let activeForeground = 1
+let activebackground = 2
+var locationMonitoringStatus: Int = 0
+
 @available(iOS 17.0, *)
 public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDelegate, UIWindowSceneDelegate {
   
   var channel = FlutterMethodChannel()
   
-  let inactive = 0
-  let activeForeground = 1
-  let activebackground = 2
-
   private static let backgroundSession = CLBackgroundActivitySession()
   private var clLocationManager = CLLocationManager()
   static var fromDartChannel = FlutterMethodChannel()
-  static var toDartChannelNameForegournd = FlutterMethodChannel()
+  static var toDartChannel = FlutterBasicMessageChannel()
   var isScreenActive = false
 
   override init() {
     super.init()
     self.clLocationManager.delegate = self
+    locationMonitoringStatus = activeForeground
   }
 
   public static func register(with registrar: FlutterPluginRegistrar) {
     fromDartChannel = FlutterMethodChannel(name: "com.jimdo.uchida001tmhr.u_location_driver/fromDart", binaryMessenger: registrar.messenger())
-    toDartChannelNameForegournd = FlutterMethodChannel(name: "com.jimdo.uchida001tmhr.u_location_driver/toDartForeground", binaryMessenger: registrar.messenger())
+    toDartChannel = FlutterBasicMessageChannel(name: "com.jimdo.uchida001tmhr.u_location_driver/toDart", binaryMessenger: registrar.messenger())
     let instance = ULocationDriverPlugin()
     registrar.addMethodCallDelegate(instance, channel: fromDartChannel)
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
-    case "activateForeground":
-      UserDefaults.standard.set(activeForeground, forKey: "locationMonitoringStatus")
-      stateMachine()
-    case "activateBackground":
-      UserDefaults.standard.set(activebackground, forKey: "locationMonitoringStatus")
+    case "activate":
+      // UserDefaults.standard.set(activeForeground, forKey: "locationMonitoringStatus")
+      locationMonitoringStatus = activeForeground
       stateMachine()
     case "inactivate":
-      UserDefaults.standard.set(inactive, forKey: "locationMonitoringStatus")
+      // UserDefaults.standard.set(inactive, forKey: "locationMonitoringStatus")
+      locationMonitoringStatus = inactive
       stateMachine()
     default:
       result(FlutterMethodNotImplemented)
@@ -61,15 +62,11 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     /// データ変換（Date→テキスト）
     let dateString = dateFormatter.string(from: Date())
     let message = "\(dateString),\(location.coordinate.latitude),\(location.coordinate .longitude)"
-    toDartChannelNameForegournd.invokeMethod("informLocationToDartForeground", arguments: message)
+    toDartChannel.sendMessage(message, reply: {reply in
+      debugPrint("sendMessage() -> \(String(describing: reply))")
+    })
   }
  
-  /*
-  func getLocationManager() -> CLLocationManager {
-    return self.clLocationManager
-  }
-   */
-
   func stateMachine() {
     switch (clLocationManager.authorizationStatus) {
     case .notDetermined:
@@ -80,7 +77,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     case .denied:
       break
     case .authorizedAlways:
-      let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
+      // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
       switch (locationMonitoringStatus) {
       case activeForeground:
         pullLocation()
@@ -89,7 +86,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
         backgroundMonitoring()
         break
       default:
-        UserDefaults.standard.set(inactive, forKey: "locationMonitoringStatus")
+        // UserDefaults.standard.set(inactive, forKey: "locationMonitoringStatus")
         break
       }
       break
@@ -106,7 +103,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   }
   
   func backgroundMonitoring() {
-    let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
+    // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
     if (locationMonitoringStatus == activebackground) {
       if (CLLocationManager.significantLocationChangeMonitoringAvailable()) {
         // allowsBackgroundLocationUpdates を true に設定することで、
@@ -134,7 +131,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   func pullLocation() {
     let task = Task {
       for try await update in CLLocationUpdate.liveUpdates() {
-        let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
+        // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
         if (locationMonitoringStatus != activeForeground) {
           return
         }
@@ -143,10 +140,55 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
         }
       }
     }
-    let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
+    // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
     if (locationMonitoringStatus != activeForeground) {
       task.cancel()
     }
   }
 
+  class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+
+    var window: UIWindow?
+
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+      // Use this method to optionally configure and attach the UIWindow `window` to the provided UIWindowScene `scene`.
+      // If using a storyboard, the `window` property will automatically be initialized and attached to the scene.
+      // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
+      guard let _ = (scene as? UIWindowScene) else { return }
+    }
+
+    func sceneDidDisconnect(_ scene: UIScene) {
+      // Called as the scene is being released by the system.
+      // This occurs shortly after the scene enters the background, or when its session is discarded.
+      // Release any resources associated with this scene that can be re-created the next time the scene connects.
+      // The scene may re-connect later, as its session was not necessarily discarded (see `application:didDiscardSceneSessions` instead).
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+      // Called when the scene has moved from an inactive state to an active state.
+      // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
+    }
+
+    func sceneWillResignActive(_ scene: UIScene) {
+      // Called when the scene will move from an active state to an inactive state.
+      // This may occur due to temporary interruptions (ex. an incoming phone call).
+    }
+
+    func sceneWillEnterForeground(_ scene: UIScene) {
+      // Called as the scene transitions from the background to the foreground.
+      // Use this method to undo the changes made on entering the background.
+      locationMonitoringStatus = activeForeground
+      debugPrint("sceneWillEnterForeground() -> \(locationMonitoringStatus)")
+    }
+
+    func sceneDidEnterBackground(_ scene: UIScene) {
+      // Called as the scene transitions from the foreground to the background.
+      // Use this method to save data, release shared resources, and store enough scene-specific state information
+      // to restore the scene back to its current state.
+      locationMonitoringStatus = activebackground
+      debugPrint("sceneDidEnterBackground() -> \(locationMonitoringStatus)")
+    }
+
+  }
+  
 }
