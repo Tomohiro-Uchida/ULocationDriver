@@ -261,16 +261,6 @@ class BackgroundLocationService : Service() {
         }
 
         messageSendInactivate -> {
-          /*
-          try {
-            flutterEngineBackground?.destroy()
-            flutterEngineBackground = null
-          } catch (e: Exception) {
-            println(e)
-          }
-          println("BackgroundLocationService: messageSendInactivate -> flutterEngineBackground.destroy()")
-           */
-          // val uLocationDriverPlugin = ULocationDriverPlugin()
           stopLocationUpdates()
           println("BackgroundLocationService: messageSendInactivate -> stopLocationUpdates()")
         }
@@ -319,7 +309,6 @@ class BackgroundLocationService : Service() {
 
   override fun onDestroy() {
     println("BackgroundLocationService: BackgroundLocationService was destroyed!");
-    // flutterEngineBackground?.destroy()
     stopLocationUpdates()
     super.onDestroy()
   }
