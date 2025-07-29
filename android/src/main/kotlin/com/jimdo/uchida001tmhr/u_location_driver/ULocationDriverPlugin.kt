@@ -180,16 +180,15 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         val messageFromPluginToServiceStop = MessageFromPluginToService()
         messageFromPluginToServiceStop.messageType = MessageFromPluginToService.stopBackgroundIsolate
         messageFromPluginToServiceStop.sendMessageToService()
-        println("ULocationDriverPlugin: onAttachedToEngine(): end : runningIsolate = $runningIsolate")
       } else {
         runningIsolate = backgroundIsolateRunning
-        println("ULocationDriverPlugin: onAttachedToEngine(): end : runningIsolate = $runningIsolate")
       }
       toDartChannel = BasicMessageChannel(
         binaryMessengerToDart!!,
         toDartChannelName,
         StringCodec.INSTANCE
       )
+      println("ULocationDriverPlugin: onAttachedToEngine(): end : runningIsolate = $runningIsolate")
       println("ULocationDriverPlugin: onAttachedToEngine(): end : toDartChannelToForeground = $toDartChannel")
     }, 500)
   }

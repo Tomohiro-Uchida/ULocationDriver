@@ -60,8 +60,10 @@ void backgroundEntryPoint() async {
     await Future.delayed(const Duration(milliseconds: 500));
 
     connectBackgroundMessageHandler();
+    /*
     final uLocationDriverPlugin = ULocationDriver();
     uLocationDriverPlugin.activate();
+     */
   }
 }
 
