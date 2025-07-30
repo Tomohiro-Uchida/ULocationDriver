@@ -5,7 +5,7 @@ import SwiftUI
 
 let inactive = 0
 let activeForeground = 1
-let activebackground = 2
+let activeBackground = 2
 var locationMonitoringStatus: Int = 0
 
 @available(iOS 17.0, *)
@@ -22,12 +22,16 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   override init() {
     super.init()
     self.clLocationManager.delegate = self
-    locationMonitoringStatus = activeForeground
+    locationMonitoringStatus = inactive
   }
 
   public static func register(with registrar: FlutterPluginRegistrar) {
     fromDartChannel = FlutterMethodChannel(name: "com.jimdo.uchida001tmhr.u_location_driver/fromDart", binaryMessenger: registrar.messenger())
-    toDartChannel = FlutterBasicMessageChannel(name: "com.jimdo.uchida001tmhr.u_location_driver/toDart", binaryMessenger: registrar.messenger())
+    toDartChannel = FlutterBasicMessageChannel(
+      name: "com.jimdo.uchida001tmhr.u_location_driver/toDart",
+      binaryMessenger: registrar.messenger(),
+      codec: FlutterStringCodec.sharedInstance()
+    )
     let instance = ULocationDriverPlugin()
     registrar.addMethodCallDelegate(instance, channel: fromDartChannel)
   }
@@ -35,10 +39,12 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "activate":
+      debugPrint("ULocationDriverPlugin() -> handle() -> activate")
       // UserDefaults.standard.set(activeForeground, forKey: "locationMonitoringStatus")
       locationMonitoringStatus = activeForeground
       stateMachine()
     case "inactivate":
+      debugPrint("ULocationDriverPlugin() -> handle() -> inactivate")
       // UserDefaults.standard.set(inactive, forKey: "locationMonitoringStatus")
       locationMonitoringStatus = inactive
       stateMachine()
@@ -62,8 +68,9 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     /// データ変換（Date→テキスト）
     let dateString = dateFormatter.string(from: Date())
     let message = "\(dateString),\(location.coordinate.latitude),\(location.coordinate .longitude)"
+    debugPrint("ULocationDriverPlugin() -> informLocationToDart() -> message -> \(message)")
     toDartChannel.sendMessage(message, reply: {reply in
-      debugPrint("sendMessage() -> \(String(describing: reply))")
+      debugPrint("ULocationDriverPlugin() -> informLocationToDart() -> sendMessage() -> \(String(describing: reply))")
     })
   }
  
@@ -80,9 +87,11 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
       // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
       switch (locationMonitoringStatus) {
       case activeForeground:
+        debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeForeground")
         pullLocation()
         break
-      case activebackground:
+      case activeBackground:
+        debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeBackground")
         backgroundMonitoring()
         break
       default:
@@ -99,12 +108,22 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   }
   
   public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-    stateMachine()
+    debugPrint("ULocationDriverPlugin() -> locationManagerDidChangeAuthorization() : locationMonitoringStatus = \(locationMonitoringStatus)")
+    switch(locationMonitoringStatus) {
+      case activeForeground:
+        stateMachine()
+        break
+      case activeBackground:
+        stateMachine()
+        break
+    default:
+      break
+    }
   }
   
   func backgroundMonitoring() {
     // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
-    if (locationMonitoringStatus == activebackground) {
+    if (locationMonitoringStatus == activeBackground) {
       if (CLLocationManager.significantLocationChangeMonitoringAvailable()) {
         // allowsBackgroundLocationUpdates を true に設定することで、
         // バックグラウンドでの位置情報更新を有効にします。
@@ -118,6 +137,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   
 
   public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    debugPrint("ULocationDriverPlugin() -> locationManager()")
     if (locations.last != nil) {
       ULocationDriverPlugin.informLocationToDart(location: locations.last!)
       backgroundMonitoring()
@@ -129,6 +149,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   }
   
   func pullLocation() {
+    debugPrint("ULocationDriverPlugin() -> pullLocation()")
     let task = Task {
       for try await update in CLLocationUpdate.liveUpdates() {
         // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
@@ -138,6 +159,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
         if (update.location != nil) {
           ULocationDriverPlugin.informLocationToDart(location: update.location!)
         }
+        try? await Task.sleep(nanoseconds: 10_000_000_000)
       }
     }
     // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
@@ -185,7 +207,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
       // Called as the scene transitions from the foreground to the background.
       // Use this method to save data, release shared resources, and store enough scene-specific state information
       // to restore the scene back to its current state.
-      locationMonitoringStatus = activebackground
+      locationMonitoringStatus = activeBackground
       debugPrint("sceneDidEnterBackground() -> \(locationMonitoringStatus)")
     }
 

@@ -26,18 +26,18 @@ void connectBackgroundMessageHandler() {
       debugPrint("Dart: received message in background isolate: $message");
       if (message != null) {
         switch (message) {
-          case "stopBackgroundIsolate": {
-            debugPrint("Dart: stopBackgroundIsolate: SystemNavigator.pop()");
-            SystemNavigator.pop();
-          }
-          case "stopMainIsolate": {
-            break;
-          }
-          default: {
-            SendToHost sendToHost = SendToHost();
-            sendToHost.send(message);
-            break;
-          }
+          case "stopBackgroundIsolate":
+            {
+              debugPrint("Dart: stopBackgroundIsolate: SystemNavigator.pop()");
+              SystemNavigator.pop();
+            }
+          case "stopMainIsolate":
+            {}
+          default:
+            {
+              SendToHost sendToHost = SendToHost();
+              sendToHost.send(message);
+            }
         }
       }
       return "ACK";
@@ -98,22 +98,23 @@ class _MyAppState extends State<MyApp> {
       debugPrint("Dart: received message in main isolate: $message");
       if (message != null) {
         switch (message) {
-          case "stopBackgroundIsolate": {
-          }
-          case "stopMainIsolate": {
-            if (Platform.isAndroid) {
-              debugPrint("Dart: stopMainIsolate: SystemNavigator.pop()");
-              SystemNavigator.pop();
+          case "stopBackgroundIsolate":
+            {}
+          case "stopMainIsolate":
+            {
+              if (Platform.isAndroid) {
+                debugPrint("Dart: stopMainIsolate: SystemNavigator.pop()");
+                SystemNavigator.pop();
+              }
             }
-          }
-          default: {
-            setState(() {
-              messageFromNative = message;
-            });
-            SendToHost sendToHost = SendToHost();
-            sendToHost.send(message);
-            break;
-          }
+          default:
+            {
+              setState(() {
+                messageFromNative = message;
+              });
+              SendToHost sendToHost = SendToHost();
+              sendToHost.send(message);
+            }
         }
       }
       return ("ACK");
