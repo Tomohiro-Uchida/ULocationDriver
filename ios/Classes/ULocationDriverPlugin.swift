@@ -40,13 +40,11 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     switch call.method {
     case "activate":
       debugPrint("ULocationDriverPlugin() -> handle() -> activate")
-      // UserDefaults.standard.set(activeForeground, forKey: "locationMonitoringStatus")
-      locationMonitoringStatus = activeForeground
+      UserDefaults.standard.set(activeForeground, forKey: "locationMonitoringStatus")
       stateMachine()
     case "inactivate":
       debugPrint("ULocationDriverPlugin() -> handle() -> inactivate")
-      // UserDefaults.standard.set(inactive, forKey: "locationMonitoringStatus")
-      locationMonitoringStatus = inactive
+      UserDefaults.standard.set(inactive, forKey: "locationMonitoringStatus")
       stateMachine()
     default:
       result(FlutterMethodNotImplemented)
@@ -84,7 +82,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     case .denied:
       break
     case .authorizedAlways:
-      // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
+      let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
       switch (locationMonitoringStatus) {
       case activeForeground:
         debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeForeground")
@@ -116,13 +114,13 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
       case activeBackground:
         stateMachine()
         break
-    default:
-      break
+      default:
+        break
     }
   }
   
   func backgroundMonitoring() {
-    // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
+    let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
     if (locationMonitoringStatus == activeBackground) {
       if (CLLocationManager.significantLocationChangeMonitoringAvailable()) {
         // allowsBackgroundLocationUpdates を true に設定することで、
@@ -152,7 +150,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     debugPrint("ULocationDriverPlugin() -> pullLocation()")
     let task = Task {
       for try await update in CLLocationUpdate.liveUpdates() {
-        // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
+        let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
         if (locationMonitoringStatus != activeForeground) {
           return
         }
