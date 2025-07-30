@@ -160,7 +160,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
         try? await Task.sleep(nanoseconds: 10_000_000_000)
       }
     }
-    // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
+    let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
     if (locationMonitoringStatus != activeForeground) {
       task.cancel()
     }
