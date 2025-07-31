@@ -55,7 +55,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     // UserDefaults.standard.set(activeBackground, forKey: "locationMonitoringStatus")
     locationMonitoringStatus = activeBackground
     stateMachine()
-    debugPrint("ULocationDriverPlugin() -> viewWillEnterForeground() -> \(locationMonitoringStatus)")
+    debugPrint("ULocationDriverPlugin() -> viewDidEnterBackground() -> \(locationMonitoringStatus)")
   }
   
   public static func register(with registrar: FlutterPluginRegistrar) {
