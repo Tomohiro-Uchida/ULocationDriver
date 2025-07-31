@@ -178,7 +178,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   }
 
   public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-    debugPrint("ULocationDriverPlugin() -> locationManager(\(String(describing: locations.last))")
+    debugPrint("ULocationDriverPlugin() -> locationManager()")
     if (locations.last != nil) {
       backgroundLocation = locations.last
       let _ = Task {
