@@ -9,15 +9,23 @@ let activeBackground = 2
 var locationMonitoringStatus: Int = 0
 
 @available(iOS 17.0, *)
-public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDelegate {
+public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDelegate, @unchecked Sendable {
   
   var channel = FlutterMethodChannel()
   
   private static let backgroundSession = CLBackgroundActivitySession()
-  private var clLocationManager = CLLocationManager()
+  private var clLocationManager: CLLocationManager = {
+    var locationManager = CLLocationManager()
+    locationManager.allowsBackgroundLocationUpdates = true
+    // locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
+    // locationManager.distanceFilter = 1
+    return locationManager} ()
   static var fromDartChannel = FlutterMethodChannel()
   static var toDartChannel = FlutterBasicMessageChannel()
   var isScreenActive = false
+
+  var isBackgroundRunning: Bool = false
+  var backgroundLocation: CLLocation?
 
   override init() {
     super.init()
@@ -160,20 +168,28 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
       if (CLLocationManager.significantLocationChangeMonitoringAvailable()) {
         // allowsBackgroundLocationUpdates を true に設定することで、
         // バックグラウンドでの位置情報更新を有効にします。
-        clLocationManager.allowsBackgroundLocationUpdates = true
+        // clLocationManager.allowsBackgroundLocationUpdates = true
         clLocationManager.startMonitoringSignificantLocationChanges() // 常に許可されたら監視を開始
+        debugPrint("ULocationDriverPlugin() -> startMonitoringSignificantLocationChanges()")
       }
     } else {
       clLocationManager.stopMonitoringSignificantLocationChanges()
     }
   }
-  
 
   public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-    debugPrint("ULocationDriverPlugin() -> locationManager()")
+    debugPrint("ULocationDriverPlugin() -> locationManager(\(String(describing: locations.last))")
     if (locations.last != nil) {
-      ULocationDriverPlugin.informLocationToDart(location: locations.last!)
-      backgroundMonitoring()
+      backgroundLocation = locations.last
+      let _ = Task {
+        for try await _ in Timer.publish(every: TimeInterval(10), on: .main, in: .common)
+          .autoconnect()
+          .values {
+          debugPrint("Timer is expried!!")
+          ULocationDriverPlugin.informLocationToDart(location: self.backgroundLocation!)
+          backgroundMonitoring()
+        }
+      }
     }
   }
 
@@ -183,7 +199,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   
   func pullLocation() {
     debugPrint("ULocationDriverPlugin() -> pullLocation()")
-    let task = Task {
+    let foregroundTask = Task {
       for try await update in CLLocationUpdate.liveUpdates() {
         // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
         if (locationMonitoringStatus != activeForeground) {
@@ -197,8 +213,9 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     }
     //  let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
     if (locationMonitoringStatus != activeForeground) {
-      task.cancel()
+      foregroundTask.cancel()
     }
   }
   
 }
+  
