@@ -14,12 +14,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   var channel = FlutterMethodChannel()
   
   private static let backgroundSession = CLBackgroundActivitySession()
-  private var clLocationManager: CLLocationManager = {
-    var locationManager = CLLocationManager()
-    locationManager.allowsBackgroundLocationUpdates = true
-    // locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
-    // locationManager.distanceFilter = 1
-    return locationManager} ()
+  private let clLocationManager = CLLocationManager()
   static var fromDartChannel = FlutterMethodChannel()
   static var toDartChannel = FlutterBasicMessageChannel()
   var isScreenActive = false
@@ -168,7 +163,10 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
       if (CLLocationManager.significantLocationChangeMonitoringAvailable()) {
         // allowsBackgroundLocationUpdates を true に設定することで、
         // バックグラウンドでの位置情報更新を有効にします。
-        // clLocationManager.allowsBackgroundLocationUpdates = true
+        clLocationManager.allowsBackgroundLocationUpdates = true
+        clLocationManager.pausesLocationUpdatesAutomatically = false
+        clLocationManager.distanceFilter = kCLLocationAccuracyKilometer
+        clLocationManager.startUpdatingLocation()
         clLocationManager.startMonitoringSignificantLocationChanges() // 常に許可されたら監視を開始
         debugPrint("ULocationDriverPlugin() -> startMonitoringSignificantLocationChanges()")
       }
@@ -180,16 +178,8 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
     debugPrint("ULocationDriverPlugin() -> locationManager()")
     if (locations.last != nil) {
-      backgroundLocation = locations.last
-      let _ = Task {
-        for try await _ in Timer.publish(every: TimeInterval(10), on: .main, in: .common)
-          .autoconnect()
-          .values {
-          debugPrint("Timer is expried!!")
-          ULocationDriverPlugin.informLocationToDart(location: self.backgroundLocation!)
-          backgroundMonitoring()
-        }
-      }
+      ULocationDriverPlugin.informLocationToDart(location: locations.last!)
+      backgroundMonitoring()
     }
   }
 
