@@ -10,11 +10,14 @@ var locationMonitoringStatus: Int = 0
 
 @available(iOS 17.0, *)
 public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDelegate, @unchecked Sendable {
+ 
+  public static var shared = ULocationDriverPlugin()
+  public let clLocationManager = CLLocationManager() // アクセス可能にする
   
   var channel = FlutterMethodChannel()
   
   private static let backgroundSession = CLBackgroundActivitySession()
-  private let clLocationManager = CLLocationManager()
+  // private let clLocationManager = CLLocationManager()
   static var fromDartChannel = FlutterMethodChannel()
   static var toDartChannel = FlutterBasicMessageChannel()
   var isScreenActive = false
@@ -22,7 +25,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   var isBackgroundRunning: Bool = false
   var backgroundLocation: CLLocation?
 
-  override init() {
+  private override init() {
     super.init()
     self.clLocationManager.delegate = self
     locationMonitoringStatus = inactive
@@ -52,6 +55,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     stateMachine()
     debugPrint("ULocationDriverPlugin() -> viewWillEnterForeground() -> \(locationMonitoringStatus)")
   }
+  
   @objc func viewDidEnterBackground(_ notification: Notification?) {
     // 実行したい処理を記載
     debugPrint("ULocationDriverPlugin() -> viewDidEnterBackground()")
@@ -68,7 +72,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
       binaryMessenger: registrar.messenger(),
       codec: FlutterStringCodec.sharedInstance()
     )
-    let instance = ULocationDriverPlugin()
+    let instance = ULocationDriverPlugin.shared
     registrar.addMethodCallDelegate(instance, channel: fromDartChannel)
   }
 
@@ -82,7 +86,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     case "inactivate":
       debugPrint("ULocationDriverPlugin() -> handle() -> inactivate")
       // UserDefaults.standard.set(inactive, forKey: "locationMonitoringStatus")
-      locationMonitoringStatus = activeBackground
+      locationMonitoringStatus = inactive
       stateMachine()
     default:
       result(FlutterMethodNotImplemented)
@@ -122,6 +126,9 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     case .authorizedAlways:
       // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
       switch (locationMonitoringStatus) {
+      case inactive:
+        clLocationManager.stopMonitoringSignificantLocationChanges()
+        break;
       case activeForeground:
         debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeForeground")
         pullLocation()
@@ -146,32 +153,33 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
     debugPrint("ULocationDriverPlugin() -> locationManagerDidChangeAuthorization() : locationMonitoringStatus = \(locationMonitoringStatus)")
     switch(locationMonitoringStatus) {
-      case activeForeground:
-        stateMachine()
-        break
-      case activeBackground:
-        stateMachine()
-        break
-      default:
-        break
+    case inactive, activeForeground, activeBackground:
+      stateMachine()
+      break
+    default:
+      break
     }
   }
   
   func backgroundMonitoring() {
     // let locationMonitoringStatus = UserDefaults.standard.integer(forKey: "locationMonitoringStatus")
-    if (locationMonitoringStatus == activeBackground) {
+    switch (locationMonitoringStatus) {
+    case inactive, activeForeground:
+      break
+    case activeBackground:
       if (CLLocationManager.significantLocationChangeMonitoringAvailable()) {
-        // allowsBackgroundLocationUpdates を true に設定することで、
-        // バックグラウンドでの位置情報更新を有効にします。
+        clLocationManager.delegate = self
         clLocationManager.allowsBackgroundLocationUpdates = true
         clLocationManager.pausesLocationUpdatesAutomatically = false
-        clLocationManager.distanceFilter = kCLLocationAccuracyKilometer
-        clLocationManager.startUpdatingLocation()
+        // clLocationManager.distanceFilter = kCLLocationAccuracyKilometer
+        clLocationManager.distanceFilter = kCLDistanceFilterNone
+        // clLocationManager.startUpdatingLocation()
         clLocationManager.startMonitoringSignificantLocationChanges() // 常に許可されたら監視を開始
         debugPrint("ULocationDriverPlugin() -> startMonitoringSignificantLocationChanges()")
       }
-    } else {
-      clLocationManager.stopMonitoringSignificantLocationChanges()
+      break
+    default:
+      break
     }
   }
 
