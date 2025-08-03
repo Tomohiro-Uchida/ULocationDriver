@@ -119,28 +119,27 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private val mainIsolateRunning = 2
     private val backgroundIsolateRunning = 3
     private var runningIsolate = noIsolateRunning
-
   }
 
-  private fun getNotficationPermissionLocation() {
+  private fun getNotficationPermission() {
     val permissionPostNotification = ContextCompat.checkSelfPermission(thisContext, POST_NOTIFICATIONS)
     if (permissionPostNotification == PackageManager.PERMISSION_GRANTED) {
-      getLocationPermissionLocation()
+      getLocationPermission()
     } else {
       requestPermissionLauncherPostNotification.launch(POST_NOTIFICATIONS)
     }
   }
 
-  private fun getLocationPermissionLocation() {
+  private fun getLocationPermission() {
     val permissionFineLocation = ContextCompat.checkSelfPermission(thisContext, ACCESS_FINE_LOCATION)
     if (permissionFineLocation == PackageManager.PERMISSION_GRANTED) {
-      getLocationPermissionBackgroundLocation()
+      getLocationPermissionBackground()
     } else {
       requestPermissionLauncherFineLocation.launch(ACCESS_FINE_LOCATION)
     }
   }
 
-  private fun getLocationPermissionBackgroundLocation() {
+  private fun getLocationPermissionBackground() {
     val permissionBackgroundLocation = ContextCompat.checkSelfPermission(thisContext, ACCESS_BACKGROUND_LOCATION)
     if (permissionBackgroundLocation == PackageManager.PERMISSION_GRANTED) {
       Handler(Looper.getMainLooper()).post {
@@ -210,13 +209,13 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     requestPermissionLauncherPostNotification =
       (thisActivity as ComponentActivity).registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) {
-          getLocationPermissionBackgroundLocation()
+          getLocationPermissionBackground()
         }
       }
     requestPermissionLauncherFineLocation =
       (thisActivity as ComponentActivity).registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) {
-          getLocationPermissionBackgroundLocation()
+          getLocationPermissionBackground()
         }
       }
     requestPermissionLauncherBackgroundLocation =
@@ -286,7 +285,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       }
 
       "activate" -> {
-        getNotficationPermissionLocation()
+        getNotficationPermission()
         result.success("success")
       }
 

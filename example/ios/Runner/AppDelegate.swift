@@ -21,7 +21,7 @@ import CoreLocation
       plugin.clLocationManager.allowsBackgroundLocationUpdates = true
       plugin.clLocationManager.pausesLocationUpdatesAutomatically = false
       // plugin.clLocationManager.distanceFilter = kCLLocationAccuracyKilometer
-      plugin.clLocationManager.distanceFilter = kCLDistanceFilterNone
+      // plugin.clLocationManager.distanceFilter = kCLDistanceFilterNone
       plugin.clLocationManager.startMonitoringSignificantLocationChanges()
       
     }

@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:u_location_driver/u_location_driver.dart';
 import 'package:u_location_driver_example/send_to_host.dart';
+import 'package:u_location_driver_example/write_to_file.dart';
 
 BasicMessageChannel<String>? toDartChannel;
 
@@ -35,6 +36,8 @@ void connectBackgroundMessageHandler() {
             {}
           default:
             {
+              WriteToFile writeToFile = WriteToFile();
+              writeToFile.write(message);
               SendToHost sendToHost = SendToHost();
               sendToHost.send(message);
             }
@@ -84,8 +87,7 @@ class _MyAppState extends State<MyApp> {
   TextEditingController textEditingControllerTo = TextEditingController();
   late SharedPreferences prefs;
   ReceivePort receivePort = ReceivePort();
-
-  late final AppLifecycleListener appLifecycleListener;
+  bool isEmailEnabled = false;
 
   void connectForegroundMassageHandler() {
     final messenger = ServicesBinding.instance.defaultBinaryMessenger;
@@ -112,6 +114,8 @@ class _MyAppState extends State<MyApp> {
               setState(() {
                 messageFromNative = message;
               });
+              WriteToFile writeToFile = WriteToFile();
+              writeToFile.write(message);
               SendToHost sendToHost = SendToHost();
               sendToHost.send(message);
             }
@@ -139,45 +143,28 @@ class _MyAppState extends State<MyApp> {
     debugPrint("Dart: initState()");
     super.initState();
 
-    appLifecycleListener = AppLifecycleListener(
-      onShow: () {
-        debugPrint("Dart: onShow()");
-      },
-      onResume: () async {
-        debugPrint("Dart: onResume()");
-      },
-      onHide: () {
-        debugPrint("Dart: onHide()");
-      },
-      onInactive: () async {
-        debugPrint("Dart: onInactive()");
-      },
-      onPause: () {
-        debugPrint("Dart: onPause()");
-      },
-      onDetach: () {
-        debugPrint("Dart: onDetach()");
-      },
-      onRestart: () {
-        debugPrint("Dart: onRestart()");
-      },
-    );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       registerBackgroundIsolate();
       SharedPreferences.getInstance().then((prefs) {
         this.prefs = prefs;
+        bool? emailEnabled = prefs.getBool("emailEnabled");
         String? username = prefs.getString("fromAddress");
         String? password = prefs.getString("password");
         String? toAddress = prefs.getString("toAddress");
-        if (username != null &&
+        if (emailEnabled != null &&
+            emailEnabled &&
+            username != null &&
             username.isNotEmpty &&
             password != null &&
             password.isNotEmpty &&
             toAddress != null &&
             toAddress.isNotEmpty) {
-          textEditingControllerFrom.text = username;
-          textEditingControllerPassword.text = password;
-          textEditingControllerTo.text = toAddress;
+          setState(() {
+            isEmailEnabled = emailEnabled;
+            textEditingControllerFrom.text = username;
+            textEditingControllerPassword.text = password;
+            textEditingControllerTo.text = toAddress;
+          });
         }
       });
     });
@@ -187,8 +174,6 @@ class _MyAppState extends State<MyApp> {
   // Widget破棄時
   void dispose() {
     // 監視の終了を登録
-    appLifecycleListener.dispose();
-    debugPrint("executed appLifecycleListener.dispose()");
     super.dispose();
   }
 
@@ -201,6 +186,17 @@ class _MyAppState extends State<MyApp> {
         body: Center(
           child: Column(
             children: [
+              Row(children: [
+                Checkbox(
+                    value: isEmailEnabled,
+                    onChanged: (bool? value) {
+                      setState(() {
+                        isEmailEnabled = value!;
+                        prefs.setBool("emailEnabled", value);
+                      });
+                    }),
+                Text("Email enabled")
+              ]),
               TextFormField(
                 decoration: InputDecoration(labelText: "From: "),
                 controller: textEditingControllerFrom,
