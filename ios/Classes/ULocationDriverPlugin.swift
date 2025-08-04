@@ -80,7 +80,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     case "activate":
       debugPrint("ULocationDriverPlugin() -> handle() -> activate")
       locationMonitoringStatus = activeForeground
-      stateMachine()
+      stateMachine(triggerUpdatingLocation: true)
     case "inactivate":
       debugPrint("ULocationDriverPlugin() -> handle() -> inactivate")
       locationMonitoringStatus = stopped
@@ -111,7 +111,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     })
   }
  
-  func stateMachine() {
+  func stateMachine(triggerUpdatingLocation: Bool = false) {
     switch (clLocationManager.authorizationStatus) {
     case .notDetermined:
       clLocationManager.requestWhenInUseAuthorization()
@@ -129,7 +129,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
       case activeForeground:
         debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeForeground")
         // pullLocation()
-        locationMonitoring()
+        locationMonitoring(triggerUpdatingLocation: triggerUpdatingLocation)
         break
       case activeBackground:
         debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeBackground")
@@ -156,7 +156,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     stateMachine()
   }
   
-  func locationMonitoring() {
+  func locationMonitoring(triggerUpdatingLocation: Bool = false) {
     switch (locationMonitoringStatus) {
     case stopped:
       break
@@ -164,8 +164,10 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
       clLocationManager.delegate = self
       // clLocationManager.distanceFilter = kCLDistanceFilterNone
       clLocationManager.distanceFilter = kCLLocationAccuracyHundredMeters
-      clLocationManager.startUpdatingLocation()
-      debugPrint("ULocationDriverPlugin() -> startUpdatingLocation")
+      if (triggerUpdatingLocation) {
+        clLocationManager.startUpdatingLocation()
+        debugPrint("ULocationDriverPlugin() -> startUpdatingLocation")
+      }
       break
     case activeBackground, activeTerminated:
       if (CLLocationManager.significantLocationChangeMonitoringAvailable()) {
@@ -173,6 +175,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
         clLocationManager.allowsBackgroundLocationUpdates = true
         clLocationManager.pausesLocationUpdatesAutomatically = false
         // clLocationManager.distanceFilter = kCLLocationAccuracyKilometer
+        clLocationManager.distanceFilter = kCLLocationAccuracyHundredMeters
         // clLocationManager.distanceFilter = kCLDistanceFilterNone
         clLocationManager.startMonitoringSignificantLocationChanges() // 常に許可されたら監視を開始
         debugPrint("ULocationDriverPlugin() -> startMonitoringSignificantLocationChanges()")
@@ -187,7 +190,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     debugPrint("ULocationDriverPlugin() -> locationManager()")
     if (locations.last != nil) {
       ULocationDriverPlugin.informLocationToDart(location: locations.last!)
-      // locationMonitoring()
+      locationMonitoring()
     }
   }
 

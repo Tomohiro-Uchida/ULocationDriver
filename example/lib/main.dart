@@ -152,7 +152,6 @@ class _MyAppState extends State<MyApp> {
         String? password = prefs.getString("password");
         String? toAddress = prefs.getString("toAddress");
         if (emailEnabled != null &&
-            emailEnabled &&
             username != null &&
             username.isNotEmpty &&
             password != null &&

@@ -17,12 +17,16 @@ import CoreLocation
       // locationManager を適切に再セットアップ
       //  Pluginインスタンスにアクセス
       let plugin = ULocationDriverPlugin.shared
+      plugin.locationManager(plugin.clLocationManager, didUpdateLocations: launchOptions?[.location] as! [CLLocation])
+      /*
       plugin.clLocationManager.delegate = plugin
       plugin.clLocationManager.allowsBackgroundLocationUpdates = true
       plugin.clLocationManager.pausesLocationUpdatesAutomatically = false
       // plugin.clLocationManager.distanceFilter = kCLLocationAccuracyKilometer
+      plugin.clLocationManager.distanceFilter = kCLLocationAccuracyHundredMeters
       // plugin.clLocationManager.distanceFilter = kCLDistanceFilterNone
       plugin.clLocationManager.startMonitoringSignificantLocationChanges()
+       */
       
     }
     

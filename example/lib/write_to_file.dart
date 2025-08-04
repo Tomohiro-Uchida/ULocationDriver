@@ -13,7 +13,7 @@ class WriteToFile {
       documentDir = Directory("/storage/emulated/0/Documents");
     } else if (Platform.isIOS) {
       documentDir = await getApplicationDocumentsDirectory();
-    };
+    }
     if (documentDir != null) {
       String filePtah = "${documentDir.path}/uLocationDriverLog.txt";
       debugPrint("filePath = $filePtah");
