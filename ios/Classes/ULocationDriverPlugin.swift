@@ -3,15 +3,15 @@ import UIKit
 import CoreLocation
 import SwiftUI
 
-let stopped = 0
-let activeForeground = 1
-let activeBackground = 2
-let activeTerminated = 3
-var locationMonitoringStatus: Int = 0
-
 @available(iOS 17.0, *)
 public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDelegate, @unchecked Sendable {
  
+  public let stopped = 0
+  public let activeForeground = 1
+  public let activeBackground = 2
+  public let activeTerminated = 3
+  public var locationMonitoringStatus: Int = 0
+  
   public static var shared = ULocationDriverPlugin()
   public let clLocationManager = CLLocationManager() // アクセス可能にする
   
@@ -128,15 +128,10 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
         break;
       case activeForeground:
         debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeForeground")
-        // pullLocation()
         locationMonitoring(triggerUpdatingLocation: triggerUpdatingLocation)
         break
-      case activeBackground:
-        debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeBackground")
-        locationMonitoring()
-        break
-      case activeTerminated:
-        debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeTerminated")
+      case activeBackground, activeTerminated: // activeTerminatedとactiveBackgroundを統合
+        debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeBackground/activeTerminated")
         locationMonitoring()
         break
       default:
@@ -156,7 +151,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     stateMachine()
   }
   
-  func locationMonitoring(triggerUpdatingLocation: Bool = false) {
+  public func locationMonitoring(triggerUpdatingLocation: Bool = false) {
     switch (locationMonitoringStatus) {
     case stopped:
       break
@@ -196,24 +191,6 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
 
   public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
     // エラーが発生した際に実行したい処理
-  }
-  
-  func pullLocation() {
-    debugPrint("ULocationDriverPlugin() -> pullLocation()")
-    let foregroundTask = Task {
-      for try await update in CLLocationUpdate.liveUpdates() {
-        if (locationMonitoringStatus != activeForeground) {
-          return
-        }
-        if (update.location != nil) {
-          ULocationDriverPlugin.informLocationToDart(location: update.location!)
-        }
-        try? await Task.sleep(nanoseconds: 10_000_000_000)
-      }
-    }
-    if (locationMonitoringStatus != activeForeground) {
-      foregroundTask.cancel()
-    }
   }
   
 }

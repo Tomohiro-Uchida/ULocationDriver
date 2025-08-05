@@ -13,21 +13,12 @@ import CoreLocation
     
     if launchOptions?[.location] != nil {
       print("App relaunched due to location event")
-
       // locationManager を適切に再セットアップ
       //  Pluginインスタンスにアクセス
       let plugin = ULocationDriverPlugin.shared
-      plugin.locationManager(plugin.clLocationManager, didUpdateLocations: launchOptions?[.location] as! [CLLocation])
-      /*
       plugin.clLocationManager.delegate = plugin
-      plugin.clLocationManager.allowsBackgroundLocationUpdates = true
-      plugin.clLocationManager.pausesLocationUpdatesAutomatically = false
-      // plugin.clLocationManager.distanceFilter = kCLLocationAccuracyKilometer
-      plugin.clLocationManager.distanceFilter = kCLLocationAccuracyHundredMeters
-      // plugin.clLocationManager.distanceFilter = kCLDistanceFilterNone
-      plugin.clLocationManager.startMonitoringSignificantLocationChanges()
-       */
-      
+      plugin.locationMonitoringStatus = plugin.activeTerminated
+      plugin.locationMonitoring(triggerUpdatingLocation: false)
     }
     
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
