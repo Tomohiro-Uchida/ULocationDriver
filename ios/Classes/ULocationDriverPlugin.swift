@@ -157,9 +157,9 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
       break
     case activeForeground:
       clLocationManager.delegate = self
-      // clLocationManager.distanceFilter = kCLDistanceFilterNone
-      clLocationManager.distanceFilter = kCLLocationAccuracyBest
-      // clLocationManager.distanceFilter = kCLLocationAccuracyNearestTenMeters
+      clLocationManager.distanceFilter = kCLDistanceFilterNone
+      // clLocationManager.distanceFilter = kCLLocationAccuracyBest
+      clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
       if (triggerUpdatingLocation) {
         clLocationManager.startUpdatingLocation()
         debugPrint("ULocationDriverPlugin() -> startUpdatingLocation")
@@ -171,7 +171,9 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
         clLocationManager.allowsBackgroundLocationUpdates = true
         clLocationManager.pausesLocationUpdatesAutomatically = false
         clLocationManager.startMonitoringSignificantLocationChanges()
-        clLocationManager.distanceFilter = kCLLocationAccuracyNearestTenMeters
+        clLocationManager.distanceFilter = kCLDistanceFilterNone
+        clLocationManager.distanceFilter = kCLLocationAccuracyBest
+        // clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
         debugPrint("ULocationDriverPlugin() -> startMonitoringSignificantLocationChanges()")
       }
       break
