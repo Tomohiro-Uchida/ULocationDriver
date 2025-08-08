@@ -170,10 +170,10 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
         clLocationManager.delegate = self
         clLocationManager.allowsBackgroundLocationUpdates = true
         clLocationManager.pausesLocationUpdatesAutomatically = false
-        clLocationManager.startMonitoringSignificantLocationChanges()
         clLocationManager.distanceFilter = kCLDistanceFilterNone
         clLocationManager.distanceFilter = kCLLocationAccuracyBest
         // clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+        clLocationManager.startMonitoringSignificantLocationChanges()
         debugPrint("ULocationDriverPlugin() -> startMonitoringSignificantLocationChanges()")
       }
       break
