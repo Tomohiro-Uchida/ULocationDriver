@@ -65,7 +65,7 @@ class BackgroundLocationService : Service() {
     return serviceMessenger.binder
   }
 
-  private fun _startBackgroundIsolate(callbackHandle: Long) {
+  private fun startBackgroundIsolate(callbackHandle: Long) {
     println("startBackgroundIsolate: received callbackHandle = $callbackHandle")
 
     // Flutter 初期化
@@ -246,7 +246,7 @@ class BackgroundLocationService : Service() {
         startBackgroundIsolate -> {
           println("BackgroundLocationService: startBackgroundIsolate: callbackHandler = $callbackHandler")
           if (callbackHandler != 0L) {
-            _startBackgroundIsolate(callbackHandler)
+            startBackgroundIsolate(callbackHandler)
           }
         }
 

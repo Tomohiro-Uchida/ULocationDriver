@@ -1,7 +1,6 @@
 import Flutter
 import UIKit
 import CoreLocation
-import SwiftUI
 
 @available(iOS 17.0, *)
 public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDelegate, @unchecked Sendable {
@@ -21,10 +20,11 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   // private let clLocationManager = CLLocationManager()
   static var fromDartChannel = FlutterMethodChannel()
   static var toDartChannel = FlutterBasicMessageChannel()
-  var isScreenActive = false
 
-  var isBackgroundRunning: Bool = false
   var backgroundLocation: CLLocation?
+  
+  static var callbackHandler: String = ""
+  static var flutterEngineGroup: FlutterEngineGroup!
 
   private override init() {
     super.init()
@@ -47,10 +47,46 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     )
     
   }
+  
+  func startBackgroundIsolate(callbackHandle: String) {
+  
+    let flutterEngineBackground = ULocationDriverPlugin.flutterEngineGroup.makeEngine(
+      withEntrypoint: "backgroundEntryPoint",
+      // libraryURI: "package:u_location_driver_example/main.dart"
+      libraryURI: nil
+    )
+    
+    ULocationDriverPlugin.toDartChannel = FlutterBasicMessageChannel(
+      name: "com.jimdo.uchida001tmhr.u_location_driver/toDart",
+      binaryMessenger: flutterEngineBackground.binaryMessenger,
+      codec: FlutterStringCodec.sharedInstance()
+    )
+    
+    let result = flutterEngineBackground.run()
+    
+    debugPrint("startBackgroundIsolate: Background isolate started: result = \(result)")
+  }
+
+  func stopBackgroundIsolate() {
+    debugPrint("ULocationDriverPlugin: stopBackgroundIsolate() start")
+    let message = "stopBackgroundIsolate"
+    ULocationDriverPlugin.toDartChannel.sendMessage(message, reply: {reply in
+      debugPrint("ULocationDriverPlugin: Sent via toDartChannelToForeground -> \(String(describing: reply))")
+    })
+  }
+
+  func stopMainIsolate() {
+    debugPrint("ULocationDriverPlugin: stopMainIsolate() start")
+    let message = "stopMainIsolate"
+    ULocationDriverPlugin.toDartChannel.sendMessage(message) { reply in
+      debugPrint("ULocationDriverPlugin: Sent via toDartChannelToBackground -> \(String(describing: reply))")
+    }
+  }
 
   @objc func viewWillEnterForeground(_ notification: Notification?) {
     // 実行したい処理を記載(例：日付ラベルの更新)
     debugPrint("ULocationDriverPlugin() -> viewWillEnterForeground()")
+    stopBackgroundIsolate()
     locationMonitoringStatus = activeForeground
     stateMachine()
     debugPrint("ULocationDriverPlugin() -> viewWillEnterForeground() -> \(locationMonitoringStatus)")
@@ -59,6 +95,13 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   @objc func viewDidEnterBackground(_ notification: Notification?) {
     // 実行したい処理を記載
     debugPrint("ULocationDriverPlugin() -> viewDidEnterBackground()")
+    stopMainIsolate()
+    // FlutterEngineGroupを初期化
+    ULocationDriverPlugin.flutterEngineGroup = FlutterEngineGroup(name: "ULocationDriverIsolateGroup", project: nil)
+    
+    if (!ULocationDriverPlugin.callbackHandler.isEmpty) {
+      startBackgroundIsolate(callbackHandle: ULocationDriverPlugin.callbackHandler)
+    }
     locationMonitoringStatus = activeBackground
     stateMachine()
     debugPrint("ULocationDriverPlugin() -> viewDidEnterBackground() -> \(locationMonitoringStatus)")
@@ -77,6 +120,12 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
+    case "registerBackgroundIsolate":
+      if (call.arguments != nil) {
+        ULocationDriverPlugin.callbackHandler = (call.arguments as! Dictionary<String, Any>)["callbackHandle"] as! String
+      }
+      locationMonitoringStatus = stopped
+      stateMachine()
     case "activate":
       debugPrint("ULocationDriverPlugin() -> handle() -> activate")
       locationMonitoringStatus = activeForeground

@@ -15,52 +15,47 @@ import 'package:u_location_driver_example/write_to_file.dart';
 BasicMessageChannel<String>? toDartChannel;
 
 void connectBackgroundMessageHandler() {
-  if (Platform.isAndroid) {
-    final messenger = ServicesBinding.instance.defaultBinaryMessenger;
-    toDartChannel = BasicMessageChannel(
-      "com.jimdo.uchida001tmhr.u_location_driver/toDart",
-      StringCodec(),
-      binaryMessenger: messenger,
-    );
-    debugPrint("Dart: registering handler for toDartChannelBackground");
-    toDartChannel?.setMessageHandler((message) async {
-      debugPrint("Dart: received message in background isolate: $message");
-      if (message != null) {
-        switch (message) {
-          case "stopBackgroundIsolate":
-            {
-              debugPrint("Dart: stopBackgroundIsolate: SystemNavigator.pop()");
-              SystemNavigator.pop();
-            }
-          case "stopMainIsolate":
-            {}
-          default:
-            {
-              WriteToFile writeToFile = WriteToFile();
-              writeToFile.write(message);
-              SendToHost sendToHost = SendToHost();
-              sendToHost.send(message);
-            }
-        }
+  final messenger = ServicesBinding.instance.defaultBinaryMessenger;
+  toDartChannel = BasicMessageChannel(
+    "com.jimdo.uchida001tmhr.u_location_driver/toDart",
+    StringCodec(),
+    binaryMessenger: messenger,
+  );
+  debugPrint("Dart: registering handler for toDartChannelBackground");
+  toDartChannel?.setMessageHandler((message) async {
+    debugPrint("Dart: received message in background isolate: $message");
+    if (message != null) {
+      switch (message) {
+        case "stopBackgroundIsolate":
+          {
+            debugPrint("Dart: stopBackgroundIsolate: SystemNavigator.pop()");
+            SystemNavigator.pop();
+          }
+        case "stopMainIsolate":
+          {}
+        default:
+          {
+            WriteToFile writeToFile = WriteToFile();
+            writeToFile.write(message);
+            SendToHost sendToHost = SendToHost();
+            sendToHost.send(message);
+          }
       }
-      return "ACK";
-    });
-  }
+    }
+    return "ACK";
+  });
 }
 
 class MyHttpOverrides extends HttpOverrides {}
 
 @pragma('vm:entry-point')
 void backgroundEntryPoint() async {
-  if (Platform.isAndroid) {
-    debugPrint("Dart: backgroundEntryPoint() called");
-    // Bindingを初期化（これは必須）
-    WidgetsFlutterBinding.ensureInitialized();
-    // 少し遅延してから登録（これがポイント）
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    connectBackgroundMessageHandler();
-  }
+  debugPrint("Dart: backgroundEntryPoint() called");
+  // Bindingを初期化（これは必須）
+  WidgetsFlutterBinding.ensureInitialized();
+  // 少し遅延してから登録（これがポイント）
+  await Future.delayed(const Duration(milliseconds: 500));
+  connectBackgroundMessageHandler();
 }
 
 @pragma('vm:entry-point') // JIT/AOTコンパイラにエントリポイントであることを知らせる
@@ -104,10 +99,8 @@ class _MyAppState extends State<MyApp> {
             {}
           case "stopMainIsolate":
             {
-              if (Platform.isAndroid) {
-                debugPrint("Dart: stopMainIsolate: SystemNavigator.pop()");
-                SystemNavigator.pop();
-              }
+              debugPrint("Dart: stopMainIsolate: SystemNavigator.pop()");
+              SystemNavigator.pop();
             }
           default:
             {
@@ -134,6 +127,11 @@ class _MyAppState extends State<MyApp> {
         await uLocationDriverPlugin.registerBackgroundIsolate(arguments);
         debugPrint("Dart: registerBackgroundIsolate: end");
       }
+    } else if (Platform.isIOS) {
+      HashMap<String, dynamic> arguments = HashMap();
+      arguments.addAll({"callbackHandle": backgroundEntryPoint.toString()});
+      await uLocationDriverPlugin.registerBackgroundIsolate(arguments);
+      debugPrint("Dart: registerBackgroundIsolate: end");
     }
     return;
   }
@@ -185,17 +183,20 @@ class _MyAppState extends State<MyApp> {
         body: Center(
           child: Column(
             children: [
-              Row(children: [
-                Checkbox(
+              Row(
+                children: [
+                  Checkbox(
                     value: isEmailEnabled,
                     onChanged: (bool? value) {
                       setState(() {
                         isEmailEnabled = value!;
                         prefs.setBool("emailEnabled", value);
                       });
-                    }),
-                Text("Email enabled")
-              ]),
+                    },
+                  ),
+                  Text("Email enabled"),
+                ],
+              ),
               TextFormField(
                 decoration: InputDecoration(labelText: "From: "),
                 controller: textEditingControllerFrom,
