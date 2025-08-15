@@ -1,5 +1,3 @@
-import 'dart:collection';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:u_location_driver/u_location_driver_platform_interface.dart';
 import 'package:u_location_driver/u_location_driver_method_channel.dart';
@@ -8,12 +6,6 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 class MockULocationDriverPlatform
     with MockPlatformInterfaceMixin
     implements ULocationDriverPlatform {
-
-  @override
-  Future<String?> registerBackgroundIsolate(HashMap<String, dynamic>? arguments) {
-    // TODO: implement registerBackgroundIsolate
-    throw UnimplementedError();
-  }
 
   @override
   Future<String?> activate() {

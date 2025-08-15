@@ -1,5 +1,3 @@
-import 'dart:collection';
-
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'u_location_driver_method_channel.dart';
@@ -23,10 +21,6 @@ abstract class ULocationDriverPlatform extends PlatformInterface {
   static set instance(ULocationDriverPlatform instance) {
     PlatformInterface.verifyToken(instance, _token);
     _instance = instance;
-  }
-
-  Future<String?> registerBackgroundIsolate(HashMap<String, dynamic>? arguments) async {
-    throw UnimplementedError('registerBackgroundIsolate() has not been implemented.');
   }
 
   Future<String?> activate() async {

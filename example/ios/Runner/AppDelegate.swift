@@ -18,7 +18,7 @@ import CoreLocation
       let plugin = ULocationDriverPlugin.shared
       plugin.clLocationManager.delegate = plugin
       plugin.locationMonitoringStatus = plugin.activeTerminated
-      plugin.locationMonitoring(triggerUpdatingLocation: false)
+      plugin.locationMonitoring()
     }
     
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)

@@ -16,10 +16,10 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   
   var channel = FlutterMethodChannel()
   
-  private static let backgroundSession = CLBackgroundActivitySession()
+  // private static let backgroundSession = CLBackgroundActivitySession()
   // private let clLocationManager = CLLocationManager()
   static var fromDartChannel = FlutterMethodChannel()
-  static var toDartChannel = FlutterBasicMessageChannel()
+  static var toDartChannel = FlutterMethodChannel()
 
   var backgroundLocation: CLLocation?
   
@@ -30,110 +30,27 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     super.init()
     self.clLocationManager.delegate = self
     locationMonitoringStatus = stopped
-    
-    // アプリがフォアグラウンドに入った時に呼ばれる
-    NotificationCenter.default.addObserver(
-        self,
-        selector: #selector(viewWillEnterForeground(_:)),
-        name: UIApplication.willEnterForegroundNotification,
-        object: nil
-    )
-    // アプリがバックグラウンドに入った時に呼ばれる
-    NotificationCenter.default.addObserver(
-        self,
-        selector: #selector(viewDidEnterBackground(_:)),
-        name: UIApplication.didEnterBackgroundNotification,
-        object: nil
-    )
-    
-  }
-  
-  func startBackgroundIsolate(callbackHandle: String) {
-  
-    let flutterEngineBackground = ULocationDriverPlugin.flutterEngineGroup.makeEngine(
-      withEntrypoint: "backgroundEntryPoint",
-      // libraryURI: "package:u_location_driver_example/main.dart"
-      libraryURI: nil
-    )
-    
-    ULocationDriverPlugin.toDartChannel = FlutterBasicMessageChannel(
-      name: "com.jimdo.uchida001tmhr.u_location_driver/toDart",
-      binaryMessenger: flutterEngineBackground.binaryMessenger,
-      codec: FlutterStringCodec.sharedInstance()
-    )
-    
-    let result = flutterEngineBackground.run()
-    
-    debugPrint("startBackgroundIsolate: Background isolate started: result = \(result)")
-  }
-
-  func stopBackgroundIsolate() {
-    debugPrint("ULocationDriverPlugin: stopBackgroundIsolate() start")
-    let message = "stopBackgroundIsolate"
-    ULocationDriverPlugin.toDartChannel.sendMessage(message, reply: {reply in
-      debugPrint("ULocationDriverPlugin: Sent via toDartChannelToForeground -> \(String(describing: reply))")
-    })
-  }
-
-  func stopMainIsolate() {
-    debugPrint("ULocationDriverPlugin: stopMainIsolate() start")
-    let message = "stopMainIsolate"
-    ULocationDriverPlugin.toDartChannel.sendMessage(message) { reply in
-      debugPrint("ULocationDriverPlugin: Sent via toDartChannelToBackground -> \(String(describing: reply))")
-    }
-  }
-
-  @objc func viewWillEnterForeground(_ notification: Notification?) {
-    // 実行したい処理を記載(例：日付ラベルの更新)
-    debugPrint("ULocationDriverPlugin() -> viewWillEnterForeground()")
-    stopBackgroundIsolate()
-    locationMonitoringStatus = activeForeground
-    stateMachine()
-    debugPrint("ULocationDriverPlugin() -> viewWillEnterForeground() -> \(locationMonitoringStatus)")
-  }
-  
-  @objc func viewDidEnterBackground(_ notification: Notification?) {
-    // 実行したい処理を記載
-    debugPrint("ULocationDriverPlugin() -> viewDidEnterBackground()")
-    stopMainIsolate()
-    // FlutterEngineGroupを初期化
-    ULocationDriverPlugin.flutterEngineGroup = FlutterEngineGroup(name: "ULocationDriverIsolateGroup", project: nil)
-    
-    if (!ULocationDriverPlugin.callbackHandler.isEmpty) {
-      startBackgroundIsolate(callbackHandle: ULocationDriverPlugin.callbackHandler)
-    }
-    locationMonitoringStatus = activeBackground
-    stateMachine()
-    debugPrint("ULocationDriverPlugin() -> viewDidEnterBackground() -> \(locationMonitoringStatus)")
   }
   
   public static func register(with registrar: FlutterPluginRegistrar) {
     fromDartChannel = FlutterMethodChannel(name: "com.jimdo.uchida001tmhr.u_location_driver/fromDart", binaryMessenger: registrar.messenger())
-    toDartChannel = FlutterBasicMessageChannel(
-      name: "com.jimdo.uchida001tmhr.u_location_driver/toDart",
-      binaryMessenger: registrar.messenger(),
-      codec: FlutterStringCodec.sharedInstance()
-    )
+    toDartChannel = FlutterMethodChannel(name: "com.jimdo.uchida001tmhr.u_location_driver/toDart", binaryMessenger: registrar.messenger())
     let instance = ULocationDriverPlugin.shared
     registrar.addMethodCallDelegate(instance, channel: fromDartChannel)
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
-    case "registerBackgroundIsolate":
-      if (call.arguments != nil) {
-        ULocationDriverPlugin.callbackHandler = (call.arguments as! Dictionary<String, Any>)["callbackHandle"] as! String
-      }
-      locationMonitoringStatus = stopped
-      stateMachine()
     case "activate":
       debugPrint("ULocationDriverPlugin() -> handle() -> activate")
       locationMonitoringStatus = activeForeground
-      stateMachine(triggerUpdatingLocation: true)
+      stateMachine()
+      result("ACK")
     case "inactivate":
       debugPrint("ULocationDriverPlugin() -> handle() -> inactivate")
       locationMonitoringStatus = stopped
       stateMachine()
+      result("ACK")
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -155,12 +72,10 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     let dateString = dateFormatter.string(from: Date())
     let message = "\(dateString),\(location.coordinate.latitude),\(location.coordinate .longitude)"
     debugPrint("ULocationDriverPlugin() -> informLocationToDart() -> message -> \(message)")
-    toDartChannel.sendMessage(message, reply: {reply in
-      debugPrint("ULocationDriverPlugin() -> informLocationToDart() -> sendMessage() -> \(String(describing: reply))")
-    })
+    toDartChannel.invokeMethod("location", arguments: message)
   }
  
-  func stateMachine(triggerUpdatingLocation: Bool = false) {
+  func stateMachine() {
     switch (clLocationManager.authorizationStatus) {
     case .notDetermined:
       clLocationManager.requestWhenInUseAuthorization()
@@ -175,12 +90,8 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
         clLocationManager.stopUpdatingLocation()
         clLocationManager.stopMonitoringSignificantLocationChanges()
         break;
-      case activeForeground:
-        debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeForeground")
-        locationMonitoring(triggerUpdatingLocation: triggerUpdatingLocation)
-        break
-      case activeBackground, activeTerminated: // activeTerminatedとactiveBackgroundを統合
-        debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeBackground/activeTerminated")
+      case activeForeground, activeBackground, activeTerminated:
+        debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeForeground/activeBackground/activeTerminated")
         locationMonitoring()
         break
       default:
@@ -200,7 +111,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     stateMachine()
   }
   
-  public func locationMonitoring(triggerUpdatingLocation: Bool = false) {
+  public func locationMonitoring() {
     switch (locationMonitoringStatus) {
     case stopped:
       break
@@ -209,22 +120,21 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
       clLocationManager.distanceFilter = kCLDistanceFilterNone
       // clLocationManager.distanceFilter = kCLLocationAccuracyBest
       clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-      if (triggerUpdatingLocation) {
-        clLocationManager.startUpdatingLocation()
-        debugPrint("ULocationDriverPlugin() -> startUpdatingLocation")
-      }
+      clLocationManager.startUpdatingLocation()
+      debugPrint("ULocationDriverPlugin() -> startUpdatingLocation")
       break
     case activeBackground, activeTerminated:
+      clLocationManager.delegate = self
+      clLocationManager.allowsBackgroundLocationUpdates = true
+      clLocationManager.pausesLocationUpdatesAutomatically = false
+      clLocationManager.distanceFilter = kCLDistanceFilterNone
+      clLocationManager.distanceFilter = kCLLocationAccuracyBest
+      // clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
       if (CLLocationManager.significantLocationChangeMonitoringAvailable()) {
-        clLocationManager.delegate = self
-        clLocationManager.allowsBackgroundLocationUpdates = true
-        clLocationManager.pausesLocationUpdatesAutomatically = false
-        clLocationManager.distanceFilter = kCLDistanceFilterNone
-        clLocationManager.distanceFilter = kCLLocationAccuracyBest
-        // clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
         clLocationManager.startMonitoringSignificantLocationChanges()
-        debugPrint("ULocationDriverPlugin() -> startMonitoringSignificantLocationChanges()")
       }
+      clLocationManager.startUpdatingLocation()
+      debugPrint("ULocationDriverPlugin() -> startMonitoringSignificantLocationChanges()")
       break
     default:
       break
