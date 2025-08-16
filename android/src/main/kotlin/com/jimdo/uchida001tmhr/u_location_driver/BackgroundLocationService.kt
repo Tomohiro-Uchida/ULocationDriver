@@ -135,8 +135,8 @@ class BackgroundLocationService : Service() {
   fun startLocationUpdates() {
     fusedLocationClients.forEach { it ->
       it.requestLocationUpdates(
-        LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 10 * 1000 /*10秒*/)
-          .setMinUpdateIntervalMillis(5 * 1000 /*5秒*/)
+        LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 5 * 1000 /*5秒*/)
+          .setMinUpdateIntervalMillis(3 * 1000 /*3秒*/)
           .build(), locationCallback, Looper.getMainLooper()
       )
     }
