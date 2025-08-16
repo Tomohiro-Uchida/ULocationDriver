@@ -44,7 +44,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     case "activate":
       debugPrint("ULocationDriverPlugin() -> handle() -> activate")
       locationMonitoringStatus = activeForeground
-      stateMachine()
+      stateMachine(startLocationUpdate: true)
       result("ACK")
     case "inactivate":
       debugPrint("ULocationDriverPlugin() -> handle() -> inactivate")
@@ -75,7 +75,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     toDartChannel.invokeMethod("location", arguments: message)
   }
  
-  func stateMachine() {
+  func stateMachine(startLocationUpdate: Bool = false) {
     switch (clLocationManager.authorizationStatus) {
     case .notDetermined:
       clLocationManager.requestWhenInUseAuthorization()
@@ -92,7 +92,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
         break;
       case activeForeground, activeBackground, activeTerminated:
         debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeForeground/activeBackground/activeTerminated")
-        locationMonitoring()
+        locationMonitoring(startLocationUpdate: startLocationUpdate)
         break
       default:
         break
@@ -108,33 +108,40 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   
   public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
     debugPrint("ULocationDriverPlugin() -> locationManagerDidChangeAuthorization() : locationMonitoringStatus = \(locationMonitoringStatus)")
-    stateMachine()
+    stateMachine(startLocationUpdate: true)
   }
   
-  public func locationMonitoring() {
+  public func locationMonitoring(startLocationUpdate: Bool = false) {
     switch (locationMonitoringStatus) {
     case stopped:
       break
     case activeForeground:
       clLocationManager.delegate = self
-      clLocationManager.distanceFilter = kCLDistanceFilterNone
-      // clLocationManager.distanceFilter = kCLLocationAccuracyBest
-      clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-      clLocationManager.startUpdatingLocation()
-      debugPrint("ULocationDriverPlugin() -> startUpdatingLocation")
+      // clLocationManager.distanceFilter = kCLDistanceFilterNone
+      clLocationManager.distanceFilter  = 10.0
+      // clLocationManager.desiredAccuracy = kCLLocationAccuracyReduced
+      // clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+      if (startLocationUpdate) {
+        clLocationManager.startUpdatingLocation()
+        debugPrint("ULocationDriverPlugin() -> startUpdatingLocation")
+      }
       break
     case activeBackground, activeTerminated:
       clLocationManager.delegate = self
       clLocationManager.allowsBackgroundLocationUpdates = true
       clLocationManager.pausesLocationUpdatesAutomatically = false
-      clLocationManager.distanceFilter = kCLDistanceFilterNone
-      clLocationManager.distanceFilter = kCLLocationAccuracyBest
+      // clLocationManager.distanceFilter = kCLDistanceFilterNone
+      clLocationManager.distanceFilter  = 10.0
+      // clLocationManager.distanceFilter = kCLLocationAccuracyReduced
       // clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
       if (CLLocationManager.significantLocationChangeMonitoringAvailable()) {
         clLocationManager.startMonitoringSignificantLocationChanges()
+        debugPrint("ULocationDriverPlugin() -> startMonitoringSignificantLocationChanges()")
       }
-      clLocationManager.startUpdatingLocation()
-      debugPrint("ULocationDriverPlugin() -> startMonitoringSignificantLocationChanges()")
+      if (startLocationUpdate) {
+        clLocationManager.startUpdatingLocation()
+        debugPrint("ULocationDriverPlugin() -> startUpdatingLocation")
+      }
       break
     default:
       break

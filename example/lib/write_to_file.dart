@@ -16,7 +16,7 @@ class WriteToFile {
     }
     if (documentDir != null) {
       String filePtah = "${documentDir.path}/uLocationDriverLog.txt";
-      debugPrint("filePath = $filePtah");
+      debugPrint("DateTime = ${DateTime.now()}, filePath = $filePtah");
       File(filePtah).writeAsString("$message\n", mode: FileMode.append);
     }
   }

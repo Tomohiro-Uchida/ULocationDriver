@@ -37,7 +37,7 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.BasicMessageChannel
 import io.flutter.plugin.common.BinaryMessenger
-import io.flutter.plugin.common.StringCodec
+import io.flutter.plugin.common.MethodCodec
 
 class MessageFromPluginToService {
   var messageType = messageSendInactivate
@@ -45,10 +45,6 @@ class MessageFromPluginToService {
   var backgroundService: Service? = null
 
   companion object {
-    val registerBackgroundIsolate = 1000
-    val startBackgroundIsolate = 1010
-    val stopBackgroundIsolate = 1020
-    val stopMainIsolate = 1030
     val messageStartLocation = 2000
 
     // val messageSendActivate = 3000
@@ -62,15 +58,6 @@ class MessageFromPluginToService {
     try {
       val msg = Message.obtain(null, messageType, 0, 0)
       msg.replyTo = activityMessenger
-      val bundle = Bundle()
-      when (messageType) {
-        registerBackgroundIsolate -> {
-          if (message != null) {
-            bundle.putLong("callbackHandle", message as Long)
-          }
-        }
-      }
-      msg.data = bundle
       println("ULocationDriverPlugin: sendMessageToService($messageType)")
       serviceMessenger?.send(msg)
     } catch (e: RemoteException) {
@@ -107,14 +94,13 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     val fromDartChannelName = "com.jimdo.uchida001tmhr.u_location_driver/fromDart"
     val toDartChannelName = "com.jimdo.uchida001tmhr.u_location_driver/toDart"
     var attachCount = 0
-    var toDartChannel: BasicMessageChannel<String>? = null
+    var toDartChannel: MethodChannel? = null
     var binaryMessengerToDart: BinaryMessenger? = null
     var myPackageName: String? = ""
     var backgroundFlutterEngine: FlutterEngine? = null
     var backgroundDartExecutor: DartExecutor? = null
     lateinit var eventSinkForeground: EventChannel.EventSink
     lateinit var eventSinkBackground: EventChannel.EventSink
-    var flutterEngineBackground: FlutterEngine? = null
     private val noIsolateRunning = 1
     private val mainIsolateRunning = 2
     private val backgroundIsolateRunning = 3
@@ -164,32 +150,14 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    println("ULocationDriverPlugin: onAttachedToEngine(): start : ${flutterPluginBinding.binaryMessenger}")
     fromDartChannel = MethodChannel(flutterPluginBinding.binaryMessenger, fromDartChannelName)
     fromDartChannel.setMethodCallHandler(this)
     thisContext = flutterPluginBinding.applicationContext
     binaryMessengerToDart = flutterPluginBinding.binaryMessenger
-    Handler(Looper.getMainLooper()).postDelayed({
-      val _processInfo = getProcessInfo()
-      if (_processInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND ||
-        _processInfo?.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
-      ) {
-        runningIsolate = mainIsolateRunning
-        // Stop Background Isolate
-        val messageFromPluginToServiceStop = MessageFromPluginToService()
-        messageFromPluginToServiceStop.messageType = MessageFromPluginToService.stopBackgroundIsolate
-        messageFromPluginToServiceStop.sendMessageToService()
-      } else {
-        runningIsolate = backgroundIsolateRunning
-      }
-      toDartChannel = BasicMessageChannel(
+      toDartChannel = MethodChannel(
         binaryMessengerToDart!!,
-        toDartChannelName,
-        StringCodec.INSTANCE
+        toDartChannelName
       )
-      println("ULocationDriverPlugin: onAttachedToEngine(): end : runningIsolate = $runningIsolate")
-      println("ULocationDriverPlugin: onAttachedToEngine(): end : toDartChannelToForeground = $toDartChannel")
-    }, 500)
   }
 
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
@@ -231,18 +199,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-    // Stop Main Isolate
-    val messageFromPluginToServiceStop = MessageFromPluginToService()
-    messageFromPluginToServiceStop.messageType = MessageFromPluginToService.stopMainIsolate
-    messageFromPluginToServiceStop.sendMessageToService()
-    // Start Background Isolate
-    Handler(Looper.getMainLooper()).postDelayed({
-      val messageFromPluginToServiceStart = MessageFromPluginToService()
-      messageFromPluginToServiceStart.messageType = MessageFromPluginToService.startBackgroundIsolate
-      messageFromPluginToServiceStart.sendMessageToService()
-    }, 500)
-    runningIsolate = backgroundIsolateRunning
-    println("ULocationDriverPlugin: onDetachedFromEngine(): end : runningIsolate = $runningIsolate")
   }
 
   override fun onDetachedFromActivity() {
@@ -261,29 +217,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     println("ULocationDriverPlugin: onMethodCall() -> ${call.method}")
     val intentLocation = Intent(thisContext, BackgroundLocationService::class.java)
     when (call.method) {
-      "registerBackgroundIsolate" -> {
-        println("ULocationDriverPlugin: registerBackgroundIsolate: Start")
-        Handler(Looper.getMainLooper()).post {
-          val messageFromPluginToService = MessageFromPluginToService()
-          messageFromPluginToService.messageType = MessageFromPluginToService.registerBackgroundIsolate
-          if (call.arguments != null) {
-            val argCallbackHandle: Long? = call.argument<Long>("callbackHandle")
-            println("ULocationDriverPlugin: registerBackgroundIsolate argCallbackHandle = ${argCallbackHandle}")
-            if (argCallbackHandle != null) {
-              messageFromPluginToService.message = argCallbackHandle
-            }
-          }
-          messageFromPluginToService.sendMessageToService()
-        }
-        Handler(Looper.getMainLooper()).postDelayed({
-          val messageFromPluginToService = MessageFromPluginToService()
-          messageFromPluginToService.messageType = MessageFromPluginToService.messageSendInactivate
-          messageFromPluginToService.sendMessageToService()
-        }, 500)
-        result.success("success")
-        println("ULocationDriverPlugin: registerBackgroundIsolate: end")
-      }
-
       "activate" -> {
         getNotficationPermission()
         result.success("success")

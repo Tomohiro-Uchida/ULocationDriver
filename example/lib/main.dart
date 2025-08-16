@@ -7,8 +7,7 @@ import 'package:u_location_driver/u_location_driver.dart';
 import 'package:u_location_driver_example/send_to_host.dart';
 import 'package:u_location_driver_example/write_to_file.dart';
 
-late MethodChannel toDartChannel;
-
+@pragma('vm:entry-point')
 Future<void> main() async {
   // The name must be main().
   debugPrint("Dart: main()");
@@ -35,29 +34,25 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void initState() {
-    debugPrint("Dart: initState()");
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      debugPrint("Dart: registering handler for toDartChannelBackground");
-      toDartChannel.setMethodCallHandler((call) {
-        switch (call.method) {
-          case "location":
-            WriteToFile writeToFile = WriteToFile();
-            writeToFile.write(call.arguments);
-            SendToHost sendToHost = SendToHost();
-            sendToHost.send(call.arguments);
-            if (RootIsolateToken.instance != null) {
-              setState(() {
-                messageFromNative = call.arguments;
-              });
-            }
-            return Future.value("ACK");
-          default:
-            return Future.value("NAK");
-        }
-      });
+    toDartChannel.setMethodCallHandler((call) {
+      switch (call.method) {
+        case "location":
+          WriteToFile writeToFile = WriteToFile();
+          writeToFile.write(call.arguments);
+          SendToHost sendToHost = SendToHost();
+          sendToHost.send(call.arguments);
+          setState(() {
+            messageFromNative = call.arguments;
+          });
+          return Future.value("ACK");
+        default:
+          return Future.value("NAK");
+      }
+    });
 
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       SharedPreferences.getInstance().then((prefs) {
         this.prefs = prefs;
         bool? emailEnabled = prefs.getBool("emailEnabled");
@@ -91,7 +86,6 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint("Dart: main() -> build()");
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(title: const Text("uLocationDriverPlugin")),
