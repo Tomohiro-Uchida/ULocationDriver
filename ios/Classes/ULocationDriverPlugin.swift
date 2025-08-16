@@ -119,8 +119,9 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
       clLocationManager.delegate = self
       // clLocationManager.distanceFilter = kCLDistanceFilterNone
       clLocationManager.distanceFilter  = 10.0
-      clLocationManager.desiredAccuracy = kCLLocationAccuracyReduced
-      // clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+      // clLocationManager.desiredAccuracy = kCLLocationAccuracyBest
+      // clLocationManager.desiredAccuracy = kCLLocationAccuracyReduced
+      clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
       if (startLocationUpdate) {
         clLocationManager.startUpdatingLocation()
         debugPrint("ULocationDriverPlugin() -> startUpdatingLocation")
@@ -132,8 +133,9 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
       clLocationManager.pausesLocationUpdatesAutomatically = false
       // clLocationManager.distanceFilter = kCLDistanceFilterNone
       clLocationManager.distanceFilter  = 10.0
-      clLocationManager.desiredAccuracy = kCLLocationAccuracyReduced
-      // clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+      // clLocationManager.desiredAccuracy = kCLLocationAccuracyBest
+      // clLocationManager.desiredAccuracy = kCLLocationAccuracyReduced
+      clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
       if (CLLocationManager.significantLocationChangeMonitoringAvailable()) {
         clLocationManager.startMonitoringSignificantLocationChanges()
         debugPrint("ULocationDriverPlugin() -> startMonitoringSignificantLocationChanges()")
