@@ -22,6 +22,7 @@ import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat.startForeground
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -47,6 +48,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
+import kotlin.io.println
 
 class BackgroundLocationService : Service() {
   val serviceContext = this
@@ -105,6 +107,7 @@ class BackgroundLocationService : Service() {
     ) {
       stopLocationUpdates()
       fusedLocationClients.add(LocationServices.getFusedLocationProviderClient(serviceContext))
+      getCurrentLocation()
       startLocationUpdates()
     }
   }
@@ -113,6 +116,18 @@ class BackgroundLocationService : Service() {
     override fun onLocationResult(locationResult: LocationResult) {
       println("ULocationDriverPlugin: onLocationResult()")
       informLocationToDart(locationResult.lastLocation!!)
+    }
+  }
+
+  fun getCurrentLocation() {
+    fusedLocationClients.forEach { it ->
+      it.getCurrentLocation(
+        CurrentLocationRequest.Builder().build(),
+        null
+      ).addOnSuccessListener { it ->
+        println("ULocationDriverPlugin: getCurrentLocation()")
+        informLocationToDart(it)
+      }
     }
   }
 

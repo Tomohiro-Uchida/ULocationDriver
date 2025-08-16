@@ -129,9 +129,9 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     val permissionBackgroundLocation = ContextCompat.checkSelfPermission(thisContext, ACCESS_BACKGROUND_LOCATION)
     if (permissionBackgroundLocation == PackageManager.PERMISSION_GRANTED) {
       Handler(Looper.getMainLooper()).post {
-        val messageFromPluginToServiceStop = MessageFromPluginToService()
-        messageFromPluginToServiceStop.messageType = MessageFromPluginToService.messageStartLocation
-        messageFromPluginToServiceStop.sendMessageToService()
+        val messageFromPluginToServiceStart = MessageFromPluginToService()
+        messageFromPluginToServiceStart.messageType = MessageFromPluginToService.messageStartLocation
+        messageFromPluginToServiceStart.sendMessageToService()
       }
     } else {
       requestPermissionLauncherBackgroundLocation.launch(ACCESS_BACKGROUND_LOCATION)
