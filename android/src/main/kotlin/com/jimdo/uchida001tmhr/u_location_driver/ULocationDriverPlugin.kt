@@ -177,7 +177,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     requestPermissionLauncherPostNotification =
       (thisActivity as ComponentActivity).registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) {
-          getLocationPermissionBackground()
+          getLocationPermission()
         }
       }
     requestPermissionLauncherFineLocation =
