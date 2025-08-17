@@ -30,8 +30,42 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     super.init()
     self.clLocationManager.delegate = self
     locationMonitoringStatus = stopped
+    
+    // アプリがフォアグラウンドに入った時に呼ばれる
+    NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(viewWillEnterForeground(_:)),
+        name: UIApplication.willEnterForegroundNotification,
+        object: nil
+    )
+    // アプリがバックグラウンドに入った時に呼ばれる
+    NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(viewDidEnterBackground(_:)),
+        name: UIApplication.didEnterBackgroundNotification,
+        object: nil
+    )
+    // アプリがバックグラウンドに入った時に呼ばれる
+    NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(viewWillTerminate(_:)),
+        name: UIApplication.willTerminateNotification,
+        object: nil
+    )
   }
   
+  @objc func viewWillEnterForeground(_ notification: Notification?) {
+    locationMonitoringStatus = activeForeground
+  }
+  
+  @objc func viewDidEnterBackground(_ notification: Notification?) {
+    locationMonitoringStatus = activeBackground
+  }
+  
+  @objc func viewWillTerminate(_ notification: Notification?) {
+    locationMonitoringStatus = activeTerminated
+  }
+    
   public static func register(with registrar: FlutterPluginRegistrar) {
     fromDartChannel = FlutterMethodChannel(name: "com.jimdo.uchida001tmhr.u_location_driver/fromDart", binaryMessenger: registrar.messenger())
     toDartChannel = FlutterMethodChannel(name: "com.jimdo.uchida001tmhr.u_location_driver/toDart", binaryMessenger: registrar.messenger())
@@ -92,7 +126,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
         break;
       case activeForeground, activeBackground, activeTerminated:
         debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeForeground/activeBackground/activeTerminated")
-        locationMonitoring(startLocationUpdate: startLocationUpdate)
+        locationMonitoring()
         break
       default:
         break
@@ -111,39 +145,37 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     stateMachine(startLocationUpdate: true)
   }
   
-  public func locationMonitoring(startLocationUpdate: Bool = false) {
+  public func locationMonitoring() {
     switch (locationMonitoringStatus) {
     case stopped:
       break
     case activeForeground:
       clLocationManager.delegate = self
-      // clLocationManager.distanceFilter = kCLDistanceFilterNone
-      clLocationManager.distanceFilter  = 10.0
-      // clLocationManager.desiredAccuracy = kCLLocationAccuracyBest
+      clLocationManager.distanceFilter = kCLDistanceFilterNone
+      // clLocationManager.distanceFilter  = 10.0
+      clLocationManager.desiredAccuracy = kCLLocationAccuracyBest
       // clLocationManager.desiredAccuracy = kCLLocationAccuracyReduced
-      clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-      if (startLocationUpdate) {
-        clLocationManager.startUpdatingLocation()
-        debugPrint("ULocationDriverPlugin() -> startUpdatingLocation")
-      }
+      // clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+      clLocationManager.startUpdatingLocation()
+      debugPrint("ULocationDriverPlugin() -> startUpdatingLocation in activeForeground")
       break
     case activeBackground, activeTerminated:
       clLocationManager.delegate = self
       clLocationManager.allowsBackgroundLocationUpdates = true
       clLocationManager.pausesLocationUpdatesAutomatically = false
-      // clLocationManager.distanceFilter = kCLDistanceFilterNone
-      clLocationManager.distanceFilter  = 10.0
-      // clLocationManager.desiredAccuracy = kCLLocationAccuracyBest
+      clLocationManager.distanceFilter = kCLDistanceFilterNone
+      // clLocationManager.distanceFilter  = 10.0
+      clLocationManager.desiredAccuracy = kCLLocationAccuracyBest
       // clLocationManager.desiredAccuracy = kCLLocationAccuracyReduced
-      clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+      // clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
       if (CLLocationManager.significantLocationChangeMonitoringAvailable()) {
         clLocationManager.startMonitoringSignificantLocationChanges()
         debugPrint("ULocationDriverPlugin() -> startMonitoringSignificantLocationChanges()")
       }
-      if (startLocationUpdate) {
-        clLocationManager.startUpdatingLocation()
-        debugPrint("ULocationDriverPlugin() -> startUpdatingLocation")
-      }
+      /*
+      clLocationManager.startUpdatingLocation()
+      debugPrint("ULocationDriverPlugin() -> startUpdatingLocation in activeBackground/activeTerminated")
+       */
       break
     default:
       break
