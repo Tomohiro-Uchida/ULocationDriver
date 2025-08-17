@@ -167,7 +167,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
       clLocationManager.allowsBackgroundLocationUpdates = true
       clLocationManager.pausesLocationUpdatesAutomatically = false
       // clLocationManager.distanceFilter = kCLDistanceFilterNone
-      clLocationManager.distanceFilter  = 10.0
+      // clLocationManager.distanceFilter  = 10.0
       // clLocationManager.desiredAccuracy = kCLLocationAccuracyBest
       // clLocationManager.desiredAccuracy = kCLLocationAccuracyReduced
       clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
