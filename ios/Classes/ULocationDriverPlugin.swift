@@ -175,10 +175,8 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
         clLocationManager.startMonitoringSignificantLocationChanges()
         debugPrint("ULocationDriverPlugin() -> startMonitoringSignificantLocationChanges()")
       }
-      /*
       clLocationManager.startUpdatingLocation()
       debugPrint("ULocationDriverPlugin() -> startUpdatingLocation in activeBackground/activeTerminated")
-       */
       break
     default:
       break
@@ -195,6 +193,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
 
   public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
     // エラーが発生した際に実行したい処理
+    locationMonitoring()
   }
   
 }
