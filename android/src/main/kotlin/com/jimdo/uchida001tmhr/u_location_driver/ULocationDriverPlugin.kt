@@ -13,6 +13,7 @@ import android.content.ServiceConnection
 import android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
 import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.Manifest.permission.POST_NOTIFICATIONS
+import android.R
 import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -47,6 +48,7 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.fusedLocationClients
+import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.getCurrentLocation
 import com.jimdo.uchida001tmhr.u_location_driver.ULocationDriverPlugin.Companion.thisActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -60,12 +62,17 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.BasicMessageChannel
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCodec
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.CoroutineContext
 
 class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   private lateinit var requestPermissionLauncherPostNotification: ActivityResultLauncher<String>
@@ -96,6 +103,53 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     lateinit var eventSinkBackground: EventChannel.EventSink
     var fusedLocationClients = mutableListOf<FusedLocationProviderClient>()
     lateinit var alarmManager: AlarmManager
+
+    fun getProcessInfo(): ActivityManager.RunningAppProcessInfo? {
+      val activityManager = thisContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+      val runningAppProcessInfoList = activityManager.runningAppProcesses
+      for (processInfo in runningAppProcessInfoList) {
+        if (processInfo.processName == myPackageName) {
+          return processInfo
+        }
+      }
+      return null
+    }
+
+    fun loadFlutterEngine() {
+      val processInfo = getProcessInfo()
+      if (processInfo?.importance != ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
+        println("ULocationDriverPlugin: loadFlutterEngine()")
+        val flutterEngine = FlutterEngine(thisContext)
+        val dartEntrypoint = DartExecutor.DartEntrypoint.createDefault()
+        flutterEngine.dartExecutor.executeDartEntrypoint(dartEntrypoint)
+      }
+    }
+
+    fun informLocationToDart(location: Location?) {
+      val locale = Locale.JAPAN
+      val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
+      val dateString = dateTimeFormatter.format(LocalDateTime.now())
+      val message = "$dateString,${location?.latitude},${location?.longitude}"
+      if (toDartChannel != null) {
+        toDartChannel?.invokeMethod("location", message)
+      }
+    }
+
+    fun getCurrentLocation() {
+      println("ULocationDriverPlugin: getCurrentLocation() : Start")
+      fusedLocationClients.forEach { it ->
+        val currentLocationRequestBuilder = CurrentLocationRequest.Builder().apply {
+          setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+        }.build()
+        it.getCurrentLocation(currentLocationRequestBuilder, null)
+          .addOnSuccessListener { it ->
+            println("ULocationDriverPlugin: getCurrentLocation() -> OnSuccessListener ")
+            informLocationToDart(it)
+          }
+          .addOnFailureListener { it ->
+          }
+      }
+    }
   }
 
   private fun getNotficationPermission() {
@@ -169,6 +223,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   override fun onDetachedFromActivity() {
     println("ULocationDriverPlugin: onDetachedFromActivity()")
     stopLocationUpdates()
+    loadFlutterEngine()
     fusedLocationClients.add(LocationServices.getFusedLocationProviderClient(thisActivity))
     WorkManager
       .getInstance(thisContext)
@@ -202,38 +257,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
   }
 
-  fun getProcessInfo(): ActivityManager.RunningAppProcessInfo? {
-    val activityManager = thisContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-    val runningAppProcessInfoList = activityManager.runningAppProcesses
-    for (processInfo in runningAppProcessInfoList) {
-      if (processInfo.processName == myPackageName) {
-        return processInfo
-      }
-    }
-    return null
-  }
-
-  fun loadFlutterEngine() {
-    val processInfo = getProcessInfo()
-    if (processInfo?.importance != ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
-      println("BackgroundLocationService: loadFlutterEngine()")
-      val flutterEngine = FlutterEngine(thisContext)
-      val dartEntrypoint = DartExecutor.DartEntrypoint.createDefault()
-      flutterEngine.dartExecutor.executeDartEntrypoint(dartEntrypoint)
-    }
-  }
-
-  fun informLocationToDart(location: Location?) {
-    loadFlutterEngine()
-    val locale = Locale.JAPAN
-    val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
-    val dateString = dateTimeFormatter.format(LocalDateTime.now())
-    val message = "$dateString,${location?.latitude},${location?.longitude}"
-    if (toDartChannel != null) {
-      toDartChannel?.invokeMethod("location", message)
-    }
-  }
-
   @RequiresPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
   fun requestDeviceLocation() {
     val permissionFineLocation = ContextCompat.checkSelfPermission(
@@ -254,17 +277,6 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
   }
 
-  fun getCurrentLocation() {
-    fusedLocationClients.forEach { it ->
-      it.getCurrentLocation(
-        CurrentLocationRequest.Builder().build(),
-        null
-      ).addOnSuccessListener { it ->
-        println("ULocationDriverPlugin: getCurrentLocation()")
-        informLocationToDart(it)
-      }
-    }
-  }
 
   @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
   fun startLocationUpdates() {
@@ -293,13 +305,12 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       informLocationToDart(locationResult.lastLocation!!)
     }
   }
-
 }
 
 class LocationWorker(appContext: Context, workerParams: WorkerParameters) : Worker(appContext, workerParams) {
   override fun doWork(): Result {
-    val uLocationDriverPlugin = ULocationDriverPlugin()
-    uLocationDriverPlugin.getCurrentLocation()
+    getCurrentLocation()
     return Result.success()
   }
 }
+
