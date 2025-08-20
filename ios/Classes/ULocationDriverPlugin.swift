@@ -9,6 +9,8 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   public let activeForeground = 1
   public let activeBackground = 2
   public let activeTerminated = 3
+  public let temporaryExecuteInBackground = 4
+  public let temporaryExecuteInTerminated = 5
   public var locationMonitoringStatus: Int = 0
   
   public static var shared = ULocationDriverPlugin()
@@ -31,21 +33,20 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     self.clLocationManager.delegate = self
     locationMonitoringStatus = stopped
     
-    // アプリがフォアグラウンドに入った時に呼ばれる
     NotificationCenter.default.addObserver(
         self,
         selector: #selector(viewWillEnterForeground(_:)),
         name: UIApplication.willEnterForegroundNotification,
         object: nil
     )
-    // アプリがバックグラウンドに入った時に呼ばれる
+    
     NotificationCenter.default.addObserver(
         self,
         selector: #selector(viewDidEnterBackground(_:)),
         name: UIApplication.didEnterBackgroundNotification,
         object: nil
     )
-    // アプリがバックグラウンドに入った時に呼ばれる
+    
     NotificationCenter.default.addObserver(
         self,
         selector: #selector(viewWillTerminate(_:)),
@@ -80,8 +81,23 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     switch call.method {
     case "activate":
       debugPrint("ULocationDriverPlugin() -> handle() -> activate")
-      locationMonitoringStatus = activeForeground
-      stateMachine(startLocationUpdate: true)
+      switch (locationMonitoringStatus) {
+      case stopped:
+        locationMonitoringStatus = activeForeground
+        stateMachine(startLocationUpdate: true)
+        break;
+      case activeForeground:
+        stateMachine(startLocationUpdate: true)
+        break
+      case activeBackground:
+        locationMonitoringStatus = temporaryExecuteInBackground
+        stateMachine(startLocationUpdate: true)
+      case activeTerminated:
+        locationMonitoringStatus = temporaryExecuteInTerminated
+        stateMachine(startLocationUpdate: true)
+      default:
+        break
+      }
       result("ACK")
     case "inactivate":
       debugPrint("ULocationDriverPlugin() -> handle() -> inactivate")
@@ -127,8 +143,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
         clLocationManager.stopUpdatingLocation()
         clLocationManager.stopMonitoringSignificantLocationChanges()
         break;
-      case activeForeground, activeBackground, activeTerminated:
-        debugPrint("ULocationDriverPlugin() -> stateMachine() -> activeForeground/activeBackground/activeTerminated")
+      case activeForeground, activeBackground, activeTerminated, temporaryExecuteInBackground, temporaryExecuteInTerminated:
         locationMonitoring()
         break
       default:
@@ -152,7 +167,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     switch (locationMonitoringStatus) {
     case stopped:
       break
-    case activeForeground:
+    case activeForeground, temporaryExecuteInBackground, temporaryExecuteInTerminated:
       clLocationManager.delegate = self
       // clLocationManager.distanceFilter = kCLDistanceFilterNone
       clLocationManager.distanceFilter  = 10.0
@@ -160,7 +175,7 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
       // clLocationManager.desiredAccuracy = kCLLocationAccuracyReduced
       clLocationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
       clLocationManager.startUpdatingLocation()
-      debugPrint("ULocationDriverPlugin() -> startUpdatingLocation in activeForeground")
+      debugPrint("ULocationDriverPlugin() -> startUpdatingLocation in activeForeground/temporaryForegroundFromBackground")
       break
     case activeBackground, activeTerminated:
       clLocationManager.delegate = self
@@ -187,13 +202,37 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     debugPrint("ULocationDriverPlugin() -> locationManager()")
     if (locations.last != nil) {
       ULocationDriverPlugin.informLocationToDart(location: locations.last!)
-      locationMonitoring()
+      switch (locationMonitoringStatus) {
+      case temporaryExecuteInBackground:
+        locationMonitoring()
+        locationMonitoringStatus = activeBackground
+        break
+      case temporaryExecuteInTerminated:
+        locationMonitoring()
+        locationMonitoringStatus = activeTerminated
+        break
+      default:
+        locationMonitoring()
+        break
+      }
     }
   }
 
   public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
     // エラーが発生した際に実行したい処理
-    locationMonitoring()
+    switch (locationMonitoringStatus) {
+    case temporaryExecuteInBackground:
+      locationMonitoring()
+      locationMonitoringStatus = activeBackground
+      break
+    case temporaryExecuteInTerminated:
+      locationMonitoring()
+      locationMonitoringStatus = activeTerminated
+      break
+    default:
+      locationMonitoring()
+      break
+    }
   }
   
 }
