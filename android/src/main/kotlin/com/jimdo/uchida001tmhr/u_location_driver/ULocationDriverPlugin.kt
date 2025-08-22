@@ -17,8 +17,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
 import androidx.work.BackoffPolicy
+import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequest
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -293,11 +295,19 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     activityState = activityBackground
     stopLocationUpdates()
     fusedLocationClients.add(LocationServices.getFusedLocationProviderClient(thisActivity))
+    val constraints = Constraints(
+      NetworkType.NOT_REQUIRED,
+      false,
+      false,
+      false,
+      false
+    )
     locationWorkRequest =
       PeriodicWorkRequestBuilder<LocationWorker>(
         20, TimeUnit.MINUTES,
         10, TimeUnit.MINUTES)
         .setBackoffCriteria(BackoffPolicy.LINEAR, 5 /* 5分 */, TimeUnit.MINUTES)
+        .setConstraints(constraints)
         .build()
     WorkManager
       .getInstance(thisContext)
