@@ -16,6 +16,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
+import androidx.work.BackoffPolicy
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequest
@@ -47,7 +48,6 @@ import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
-import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.BinaryMessenger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -70,6 +70,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   companion object {
     @SuppressLint("StaticFieldLeak")
     lateinit var thisContext: Context
+
     @SuppressLint("StaticFieldLeak")
     lateinit var thisActivity: Activity
     val fromDartChannelName = "com.jimdo.uchida001tmhr.u_location_driver/fromDart"
@@ -187,6 +188,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
           requestDeviceLocation()
           println("ULocationDriverPlugin: requestDeviceLocation()")
         }
+
         activityBackground -> {
           CoroutineScope(Dispatchers.Main).launch {
             val result = getCurrentLocation();
@@ -197,6 +199,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             }
           }
         }
+
         temporaryExecuteInBackground -> {
           CoroutineScope(Dispatchers.IO).launch {
             val result = getCurrentLocation();
@@ -254,6 +257,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
               requestDeviceLocation()
               println("ULocationDriverPlugin: requestDeviceLocation()")
             }
+
             activityBackground -> {
               CoroutineScope(Dispatchers.Main).launch {
                 val result = getCurrentLocation();
@@ -264,6 +268,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
               }
             }
+
             temporaryExecuteInBackground -> {
               CoroutineScope(Dispatchers.Main).launch {
                 val result = getCurrentLocation();
@@ -288,7 +293,12 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     activityState = activityBackground
     stopLocationUpdates()
     fusedLocationClients.add(LocationServices.getFusedLocationProviderClient(thisActivity))
-    locationWorkRequest = PeriodicWorkRequestBuilder<LocationWorker>(15, TimeUnit.MINUTES).build()
+    locationWorkRequest =
+      PeriodicWorkRequestBuilder<LocationWorker>(
+        PeriodicWorkRequest.MIN_PERIODIC_INTERVAL_MILLIS, TimeUnit.MILLISECONDS,
+        PeriodicWorkRequest.MIN_PERIODIC_FLEX_MILLIS, TimeUnit.MILLISECONDS)
+        .setBackoffCriteria(BackoffPolicy.LINEAR, 5 * 60 * 1000 /* 5分 */, TimeUnit.MILLISECONDS)
+        .build()
     WorkManager
       .getInstance(thisContext)
       .enqueueUniquePeriodicWork(locationWorkName, ExistingPeriodicWorkPolicy.KEEP, locationWorkRequest)
@@ -343,6 +353,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     ) {
       stopLocationUpdates()
       fusedLocationClients.add(LocationServices.getFusedLocationProviderClient(thisActivity))
+      /*
       CoroutineScope(Dispatchers.IO).launch {
         val result = getCurrentLocation();
         if (result.isSuccess) {
@@ -351,6 +362,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
           println("ULocationDriverPlugin: getCurrentLocation() -> Failure")
         }
       }
+       */
       startLocationUpdates()
     }
   }

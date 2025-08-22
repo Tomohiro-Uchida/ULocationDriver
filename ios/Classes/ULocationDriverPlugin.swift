@@ -56,18 +56,30 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   }
   
   @objc func viewWillEnterForeground(_ notification: Notification?) {
-    debugPrint("locationMonitoringStatus is set to activeForeground")
+    if (locationMonitoringStatus == stopped) {
+      return
+    }
     locationMonitoringStatus = activeForeground
+    debugPrint("locationMonitoringStatus is set to activeForeground")
+    stateMachine()
   }
   
   @objc func viewDidEnterBackground(_ notification: Notification?) {
-    debugPrint("locationMonitoringStatus is set to activeBackground")
+    if (locationMonitoringStatus == stopped) {
+      return
+    }
     locationMonitoringStatus = activeBackground
+    debugPrint("locationMonitoringStatus is set to activeBackground")
+    stateMachine()
   }
   
   @objc func viewWillTerminate(_ notification: Notification?) {
-    debugPrint("locationMonitoringStatus is set to activeTerminated")
+    if (locationMonitoringStatus == stopped) {
+      return
+    }
     locationMonitoringStatus = activeTerminated
+    debugPrint("locationMonitoringStatus is set to activeTerminated")
+    stateMachine()
   }
     
   public static func register(with registrar: FlutterPluginRegistrar) {
@@ -166,6 +178,8 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   public func locationMonitoring() {
     switch (locationMonitoringStatus) {
     case stopped:
+      clLocationManager.stopUpdatingLocation()
+      clLocationManager.stopMonitoringSignificantLocationChanges()
       break
     case activeForeground, temporaryExecuteInBackground, temporaryExecuteInTerminated:
       clLocationManager.delegate = self
@@ -190,8 +204,8 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
         clLocationManager.startMonitoringSignificantLocationChanges()
         debugPrint("ULocationDriverPlugin() -> startMonitoringSignificantLocationChanges()")
       }
-      clLocationManager.startUpdatingLocation()
-      debugPrint("ULocationDriverPlugin() -> startUpdatingLocation in activeBackground/activeTerminated")
+      // clLocationManager.startUpdatingLocation()
+      // debugPrint("ULocationDriverPlugin() -> startUpdatingLocation in activeBackground/activeTerminated")
       break
     default:
       break
@@ -203,6 +217,10 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
     if (locations.last != nil) {
       ULocationDriverPlugin.informLocationToDart(location: locations.last!)
       switch (locationMonitoringStatus) {
+      case stopped:
+        clLocationManager.stopUpdatingLocation()
+        clLocationManager.stopMonitoringSignificantLocationChanges()
+        break
       case temporaryExecuteInBackground:
         locationMonitoring()
         locationMonitoringStatus = activeBackground
@@ -221,6 +239,10 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
     // エラーが発生した際に実行したい処理
     switch (locationMonitoringStatus) {
+    case stopped:
+      clLocationManager.stopUpdatingLocation()
+      clLocationManager.stopMonitoringSignificantLocationChanges()
+      break
     case temporaryExecuteInBackground:
       locationMonitoring()
       locationMonitoringStatus = activeBackground
@@ -236,4 +258,3 @@ public class ULocationDriverPlugin: NSObject, FlutterPlugin, CLLocationManagerDe
   }
   
 }
-  
