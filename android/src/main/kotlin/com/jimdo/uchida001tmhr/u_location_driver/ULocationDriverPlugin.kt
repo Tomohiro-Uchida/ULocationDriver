@@ -295,9 +295,9 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     fusedLocationClients.add(LocationServices.getFusedLocationProviderClient(thisActivity))
     locationWorkRequest =
       PeriodicWorkRequestBuilder<LocationWorker>(
-        PeriodicWorkRequest.MIN_PERIODIC_INTERVAL_MILLIS, TimeUnit.MILLISECONDS,
-        PeriodicWorkRequest.MIN_PERIODIC_FLEX_MILLIS, TimeUnit.MILLISECONDS)
-        .setBackoffCriteria(BackoffPolicy.LINEAR, 5 * 60 * 1000 /* 5分 */, TimeUnit.MILLISECONDS)
+        20, TimeUnit.MINUTES,
+        10, TimeUnit.MINUTES)
+        .setBackoffCriteria(BackoffPolicy.LINEAR, 5 /* 5分 */, TimeUnit.MINUTES)
         .build()
     WorkManager
       .getInstance(thisContext)
