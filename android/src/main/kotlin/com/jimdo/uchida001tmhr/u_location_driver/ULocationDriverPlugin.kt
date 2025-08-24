@@ -428,7 +428,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
           toDartChannelName
         )
         println("ULocationDriverPlugin: fusedLocationClients = $fusedLocationClients")
-        val result = getCurrentLocation();
+        val result = getCurrentLocation()
         if (result.isSuccess) {
           println("ULocationDriverPlugin: getCurrentLocation() -> Success")
         } else {
