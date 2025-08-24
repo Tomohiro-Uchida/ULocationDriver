@@ -8,15 +8,12 @@ class MethodChannelULocationDriver extends ULocationDriverPlatform {
 
   @override
   Future<String?> activate() async {
-    String? result = "";
-    result = await methodChannel.invokeMethod<String>("activate");
-    return result;
+    return await methodChannel.invokeMethod<String>("activate");
   }
 
   @override
   Future<String?> inactivate() async {
-    final result = await methodChannel.invokeMethod<String>("inactivate");
-    return result;
+    return await methodChannel.invokeMethod<String>("inactivate");
   }
 
 }

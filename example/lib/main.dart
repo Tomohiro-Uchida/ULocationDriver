@@ -39,15 +39,13 @@ class _MyAppState extends State<MyApp> {
     toDartChannel.setMethodCallHandler((call) {
       switch (call.method) {
         case "location":
-          if (call.arguments != null) {
-            WriteToFile writeToFile = WriteToFile();
-            writeToFile.write(call.arguments);
-            SendToHost sendToHost = SendToHost();
-            sendToHost.send(call.arguments);
-            setState(() {
-              messageFromNative = call.arguments;
-            });
-          }
+          WriteToFile writeToFile = WriteToFile();
+          writeToFile.write(call.arguments);
+          SendToHost sendToHost = SendToHost();
+          sendToHost.send(call.arguments);
+          setState(() {
+            messageFromNative = call.arguments;
+          });
           return Future.value("ACK");
         default:
           return Future.value("NAK");

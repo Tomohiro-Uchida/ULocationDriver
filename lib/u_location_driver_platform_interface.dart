@@ -24,7 +24,7 @@ abstract class ULocationDriverPlatform extends PlatformInterface {
   }
 
   Future<String?> activate() async {
-    throw UnimplementedError('activateForeground() has not been implemented.');
+    throw UnimplementedError('activate() has not been implemented.');
   }
 
   Future<String?> inactivate() async {

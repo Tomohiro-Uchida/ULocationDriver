@@ -9,8 +9,8 @@ class WriteToFile {
 
     Directory? documentDir;
     if (Platform.isAndroid) {
-      // documentDir = await getExternalStorageDirectory();
       documentDir = Directory("/storage/emulated/0/Documents");
+      // documentDir = await getExternalStorageDirectory();
     } else if (Platform.isIOS) {
       documentDir = await getApplicationDocumentsDirectory();
     }
