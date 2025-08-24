@@ -75,9 +75,9 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       setPriority(Priority.PRIORITY_HIGH_ACCURACY)
     }.build()
 
-    fun getProcessInfo(): ActivityManager.RunningAppProcessInfo? {
+    fun getProcessInfo(context: Context): ActivityManager.RunningAppProcessInfo? {
       val activityManager =
-        thisContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
       val runningAppProcessInfoList = activityManager.runningAppProcesses
       for (processInfo in runningAppProcessInfoList) {
         if (processInfo.processName == myPackageName) {
@@ -87,11 +87,11 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       return null
     }
 
-    fun loadFlutterEngine(): FlutterEngine? {
-      val processInfo = getProcessInfo()
+    fun loadFlutterEngine(context: Context): FlutterEngine? {
+      val processInfo = getProcessInfo(context)
       if (processInfo?.importance != ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
         println("ULocationDriverPlugin: loadFlutterEngine()")
-        val flutterEngine = FlutterEngine(thisContext)
+        val flutterEngine = FlutterEngine(context)
         val dartEntrypoint = DartExecutor.DartEntrypoint.createDefault()
         flutterEngine.dartExecutor.executeDartEntrypoint(dartEntrypoint)
         return flutterEngine
@@ -385,7 +385,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       if (fusedLocationClients.size <= 0) {
         fusedLocationClients.add(LocationServices.getFusedLocationProviderClient(context))
       }
-      backgroundFlutterEngine = loadFlutterEngine()
+      backgroundFlutterEngine = loadFlutterEngine(context)
       if (backgroundFlutterEngine != null) {
         toDartChannel = MethodChannel(
           backgroundFlutterEngine!!.dartExecutor.binaryMessenger,

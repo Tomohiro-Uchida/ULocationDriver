@@ -15,9 +15,10 @@ class WriteToFile {
       documentDir = await getApplicationDocumentsDirectory();
     }
     if (documentDir != null) {
-      String filePtah = "${documentDir.path}/uLocationDriverLog.txt";
-      debugPrint("DateTime = ${DateTime.now()}, filePath = $filePtah");
-      File(filePtah).writeAsString("$message\n", mode: FileMode.append);
+      String filePath = "${documentDir.path}/uLocationDriverLog.txt";
+      debugPrint("DateTime = ${DateTime.now()}, filePath = $filePath");
+      var file = File(filePath);
+      file.writeAsStringSync("$message\n", mode: FileMode.append);
     }
   }
 }

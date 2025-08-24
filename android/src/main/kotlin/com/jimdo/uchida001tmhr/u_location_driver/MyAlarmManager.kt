@@ -17,7 +17,7 @@ class MyAlarmManager(private val context: Context) {
         println("MyAlarmManager: registerAlarm()")
         val bootIntentRegister = Intent(context, AlarmReceiver::class.java)
         val calendar = Calendar.getInstance()
-            calendar.add(Calendar.MINUTE,20)
+            calendar.add(Calendar.MINUTE,15)
         val alarmStartTime = calendar.timeInMillis
 
         val alarmRegister = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
