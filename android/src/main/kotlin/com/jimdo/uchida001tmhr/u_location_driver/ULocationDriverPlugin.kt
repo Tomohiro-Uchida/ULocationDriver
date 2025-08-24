@@ -14,12 +14,14 @@ import android.content.Intent
 import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
 import android.location.Location
 import android.os.Looper
+import android.os.PowerManager
 import android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
+import androidx.core.content.ContextCompat.getSystemService
 import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -175,17 +177,30 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
             activityBackground -> {
               CoroutineScope(Dispatchers.Main).launch {
+                val wakeLock: PowerManager.WakeLock =
+                  (thisContext.getSystemService(Context.POWER_SERVICE) as PowerManager).run {
+                    newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ULocationDriverPlugin::WakelockTag").apply {
+                      acquire()
+                    }
+                  }
                 val result = getCurrentLocation();
                 if (result.isSuccess) {
                   println("ULocationDriverPlugin: getCurrentLocation() -> Success")
                 } else {
                   println("ULocationDriverPlugin: getCurrentLocation() -> Failure")
                 }
+                wakeLock.release()
               }
             }
 
             temporaryExecuteInBackground -> {
               CoroutineScope(Dispatchers.Main).launch {
+                val wakeLock: PowerManager.WakeLock =
+                  (thisContext.getSystemService(Context.POWER_SERVICE) as PowerManager).run {
+                    newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ULocationDriverPlugin::WakelockTag").apply {
+                      acquire()
+                    }
+                  }
                 val result = getCurrentLocation();
                 if (result.isSuccess) {
                   println("ULocationDriverPlugin: getCurrentLocation() -> Success")
@@ -193,6 +208,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                   println("ULocationDriverPlugin: getCurrentLocation() -> Failure")
                 }
                 activityState = activityBackground
+                wakeLock.release()
               }
             }
           }
@@ -307,17 +323,30 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
         activityBackground -> {
           CoroutineScope(Dispatchers.Main).launch {
+            val wakeLock: PowerManager.WakeLock =
+              (thisContext.getSystemService(Context.POWER_SERVICE) as PowerManager).run {
+                newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ULocationDriverPlugin::WakelockTag").apply {
+                  acquire()
+                }
+              }
             val result = getCurrentLocation();
             if (result.isSuccess) {
               println("ULocationDriverPlugin: getCurrentLocation() -> Success")
             } else {
               println("ULocationDriverPlugin: getCurrentLocation() -> Failure")
             }
+            wakeLock.release()
           }
         }
 
         temporaryExecuteInBackground -> {
           CoroutineScope(Dispatchers.IO).launch {
+            val wakeLock: PowerManager.WakeLock =
+              (thisContext.getSystemService(Context.POWER_SERVICE) as PowerManager).run {
+                newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ULocationDriverPlugin::WakelockTag").apply {
+                  acquire()
+                }
+              }
             val result = getCurrentLocation();
             if (result.isSuccess) {
               println("ULocationDriverPlugin: getCurrentLocation() -> Success")
@@ -325,6 +354,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
               println("ULocationDriverPlugin: getCurrentLocation() -> Failure")
             }
             activityState = activityBackground
+            wakeLock.release()
           }
         }
       }
@@ -382,6 +412,12 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
   fun getLocationInBackground(context: Context) {
     CoroutineScope(Dispatchers.Main).launch {
+      val wakeLock: PowerManager.WakeLock =
+        (context.getSystemService(Context.POWER_SERVICE) as PowerManager).run {
+          newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ULocationDriverPlugin::WakelockTag").apply {
+            acquire()
+          }
+        }
       if (fusedLocationClients.size <= 0) {
         fusedLocationClients.add(LocationServices.getFusedLocationProviderClient(context))
       }
@@ -394,11 +430,12 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         println("ULocationDriverPlugin: fusedLocationClients = $fusedLocationClients")
         val result = getCurrentLocation();
         if (result.isSuccess) {
-          println("ULocationDriverPlugin: getLocationInBackground() -> Success")
+          println("ULocationDriverPlugin: getCurrentLocation() -> Success")
         } else {
-          println("ULocationDriverPlugin: getLocationInBackground() -> Failure")
+          println("ULocationDriverPlugin: getCurrentLocation() -> Failure")
         }
       }
+      wakeLock.release()
     }
   }
 }
