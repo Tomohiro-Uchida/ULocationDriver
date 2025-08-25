@@ -262,6 +262,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     println("ULocationDriverPlugin: onMethodCall() -> ${call.method}")
     when (call.method) {
       "activate" -> {
+        println("BackgroundLocationService: activate")
         if (activityState == activityBackground) {
           activityState = temporaryExecuteInBackground
         } else {
@@ -279,9 +280,11 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       }
 
       "inactivate" -> {
+        println("BackgroundLocationService: inactivate")
         activityState = activityStopped
         stopLocationUpdates()
-        println("BackgroundLocationService: stopLocationUpdates()")
+        val myAlarmManager = MyAlarmManager(thisContext)
+        myAlarmManager.cancelAlarm()
         result.success("success")
       }
 
