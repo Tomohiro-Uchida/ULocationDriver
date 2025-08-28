@@ -1,6 +1,6 @@
 name: u_location_driver
 description: "Self Location Driver"
-version: 0.3.0+85
+version: 0.3.0+87
 homepage: https://www.indigosoftwareinc.com/
 
 environment:

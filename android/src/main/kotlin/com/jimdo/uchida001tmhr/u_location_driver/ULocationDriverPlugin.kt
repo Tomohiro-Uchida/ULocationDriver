@@ -74,7 +74,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     val temporaryExecuteInBackground = 3
     var activityState = activityStopped
     val currentLocationRequestBuilder = CurrentLocationRequest.Builder().apply {
-      setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+      setPriority(Priority.PRIORITY_BALANCED_POWER_ACCURACY)
     }.build()
 
     fun getProcessInfo(context: Context): ActivityManager.RunningAppProcessInfo? {
@@ -390,7 +390,7 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
   fun startLocationUpdates() {
     fusedLocationClients.forEach { it ->
       it.requestLocationUpdates(
-        LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10 * 1000 /*10秒*/)
+        LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 10 * 1000 /*10秒*/)
           .setMinUpdateIntervalMillis(5 * 1000 /*5秒*/)
           .build(), locationCallback, Looper.getMainLooper()
       )
