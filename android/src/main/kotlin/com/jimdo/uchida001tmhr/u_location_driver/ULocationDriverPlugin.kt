@@ -104,12 +104,12 @@ class ULocationDriverPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     suspend fun informLocationToDart(location: Location?): Result<String> {
       println("ULocationDriverPlugin: informLocationToDart() : Start")
       return suspendCoroutine { continuation ->
-        if (location != null && toDartChannel != null) {
+        if (/* location != null && */ toDartChannel != null) {
           val locale = Locale.JAPAN
           val dateTimeFormatter =
             DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale)
           val dateString = dateTimeFormatter.format(LocalDateTime.now())
-          val message = "$dateString,${location.latitude},${location.longitude}"
+          val message = "$dateString,${location?.latitude},${location?.longitude}"
           toDartChannel?.invokeMethod("location", message, object : MethodChannel.Result {
             override fun success(result: Any?) {
               continuation.resume(Result.success("OK"))
